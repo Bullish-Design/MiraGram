@@ -7,14 +7,20 @@ import os
 from time import time
 from datetime import datetime
 
+from mirascope.core import openai
+
+
 # Local Imports
 from miragram.src.base.base import (
-    IntermediateResponse,
-    ArchitectAskResult,
-    ArchitectAskStep,
+    # IntermediateResponse,
+    # ArchitectAskResult,
+    # ArchitectAskStep,
     MiraResponse,
 )
-
+from miragram.src.call.call_base import (
+    IntermediateResponse,
+    get_single_instance_from_db,
+)
 from miragram.tests.functions.code import (
     FewShot,
     TestLibrary,
@@ -24,7 +30,6 @@ from miragram.tests.functions.code import (
     finish_code_dec,
     gen_tests_dec,
     gen_test_library_dec,
-    get_single_instance_from_db,
 )
 
 # Configure logging
@@ -111,6 +116,20 @@ def test_code_request():
 
 
 # Classes -----------------------------------------------------------------------------------------------------------
+
+
+class ArchitectAskStep(BaseModel):
+    response_type: str
+    response_id: str
+
+
+class ArchitectAskResult(BaseModel):
+    query: str
+    step_response_list: List[ArchitectAskStep]
+
+
+class ArchitectAskList(BaseModel):
+    queries: List[ArchitectAskResult]
 
 
 # Architect Class

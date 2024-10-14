@@ -18,9 +18,11 @@ devenv.local.nix
 # Logs
 *log/*
 .log
+*logs*
 
 # Misc
 *.egg-info*
-
+*code_output/*
+*__pycache__*
 
 

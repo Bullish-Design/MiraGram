@@ -1,5 +1,6 @@
 import os
 import logging
+from logging.handlers import RotatingFileHandler
 
 # Import logdir:
 from miragram.src.base.config import logdir

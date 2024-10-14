@@ -4,28 +4,16 @@ from datetime import datetime
 import functools
 
 from typing import (
-    #    Callable,
-    #    List,
     Any,
-    #    Dict,
-    #    Union,
     Optional,
     Type,
-    #    TypeVar,
-    #    ClassVar,
     Iterator,
 )
 
 # Pydantic Imports ------------------------------------------------------------------
 from pydantic import (
     BaseModel,
-    #    Field,
-    #    ConfigDict,
-    #    Json,
-    #    PrivateAttr,
     ValidationError,
-    #    field_validator,
-    #    FieldValidationInfo,
 )
 
 # SQLModel Imports ------------------------------------------------------------------
@@ -69,11 +57,11 @@ from mirascope.core import (
 )
 
 # from mirascope.core.base.stream import BaseStream  #
-from mirascope.base.structured_stream import BaseStructuredStream
+from mirascope.core.base.structured_stream import BaseStructuredStream
 
 
 # Library Imports -------------------------------------------------------------------
-from miragram.src.base import SingletonEngine, MiraResponse, MiraCall, MiraChat
+from miragram.src.base.base import SingletonEngine, MiraResponse, MiraCall, MiraChat
 
 
 # Tenacity Imports ------------------------------------------------------------------
