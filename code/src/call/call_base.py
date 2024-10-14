@@ -14,7 +14,7 @@ from miragram.code.src.base import SingletonEngine, MiraResponse, MiraCall, Mira
 # Configure logging
 from miragram.log.logger import get_logger
 
-logger = get_logger("MiraBase")
+logger = get_logger("CallBase")
 
 
 # Functions -------------------------------------------------------------------------
