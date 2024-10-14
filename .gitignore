@@ -19,7 +19,8 @@ devenv.local.nix
 *log/*
 .log
 
-
+# Misc
+*.egg-info*
 
 
 

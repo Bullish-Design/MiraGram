@@ -1,0 +1,9 @@
+[project]
+name = "MiraGram"
+dynamic = ["version"]
+
+[project.scripts]
+test_architect = "miragram.tests.chats.architect:main"
+
+#[tool.setuptools.packages.find]
+#packages = ["miragram*"]

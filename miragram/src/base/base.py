@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Optional, Dict, Type, Any, ClassVar
+from typing import Optional, Dict, Type, Any, ClassVar, Iterator
 from pydantic import BaseModel, PrivateAttr
 from sqlalchemy import (
     create_engine,
@@ -12,18 +12,89 @@ from sqlalchemy import (
     Table,
     insert,
 )
+from sqlmodel import (
+    SQLModel,
+    create_engine as sqlmodel_create_engine,
+    # Session,
+    select,
+    # Column as SQLColumn,
+    # JSONB,
+    # sa_column,
+    # Field as SQLField,
+    # MetaData as SQLMetaData,
+)
+
 from sqlalchemy.orm import sessionmaker
 import uuid
 import json
+from contextlib import contextmanager
+from contextvars import ContextVar
+
 
 # Import init vars:
-from miragram.code.src.base.config import db_url
+from miragram.src.base.config import db_url
 
 
 # Configure logging
 from miragram.log.logger import get_logger
 
 logger = get_logger("MiraBase")
+
+
+# Functions ---------------------------------------------------------------------------------------------------------
+
+
+_init_context_var = ContextVar("_init_context_var", default=None)
+
+
+@contextmanager
+def init_context(value: Dict[str, Any]) -> Iterator[None]:
+    token = _init_context_var.set(value)
+    try:
+        yield
+    finally:
+        _init_context_var.reset(token)
+
+
+def reconstruct_instance_from_db(class_name: str, json_data: dict):
+    target_cls = MiraResponse.class_registry.get(class_name)
+    if not target_cls:
+        raise ValueError(f"Class '{class_name}' not found in registry.")
+    logger.info(f"Base | Reconstructing class from json: \n\n{json_data}\n\n")
+    parsed_obj = target_cls.from_json_data(json_data)
+    return parsed_obj
+
+
+def get_single_instance_from_db(class_name: str, instance_id: str):
+    engine = SingletonEngine.get_instance()
+    Session = sessionmaker(bind=engine)
+    session = Session()
+
+    table_name = class_name.lower()
+    metadata = MetaData()
+    metadata.reflect(bind=engine)
+    table = metadata.tables.get(table_name)
+
+    if table is None:
+        raise ValueError(f"Table '{table_name}' does not exist in the database.")
+
+    try:
+        # Fetch the record with the matching ID
+        stmt = select(table).where(table.c.json_data["id"].astext == instance_id)
+        result = session.execute(stmt).one()
+        json_data = result[1]  # Assuming the JSON data is in the second column
+        instance = reconstruct_instance_from_db(class_name, json_data)
+        return instance  # s
+
+    except NoResultFound:
+        raise ValueError(
+            f"No instance found with id '{instance_id}' in table '{table_name}'."
+        )
+    finally:
+        session.close()
+
+
+# Classes -----------------------------------------------------------------------------------------------------------
 
 
 # Singleton instance initialization:
@@ -56,10 +127,19 @@ class MiraBase(BaseModel):
     def __init__(self, **data):
         super().__init__(**data)
         self.id = data.get("id") or uuid.uuid4().hex
-        self._new = data.get("_new", True)
-        if self._new:
-            logger.info(f"Saving instance of {self.__class__.__name__}: {self}")
+        context = _init_context_var.get()
+        if context and "new" in context:
+            self._new = context["new"]
+        else:
+            self._new = True
+
+        if self._new and self.__class__.__name__.lower()[0:7] != "partial":
+            ## Set an ID for the instance
+            self.id = uuid.uuid4().hex
+            logger.info(f"SAVING INSTANCE: {self.__class__.__name__.lower()} {self}")
             self.save()
+        else:
+            self.id = data["id"]
 
     def save(self):
         json_data = json.loads(self.model_dump_json())
@@ -107,7 +187,10 @@ class MiraBase(BaseModel):
             raise ValueError(f"Class '{cls.__name__}' not found in registry.")
         logger.info(f"Creating {cls.__name__} from JSON data")
         instance = target_cls.parse_obj(json_data)
-        instance._new = False
+        # instance._new = False
+        with init_context({"new": False}):
+            instance = target_cls.parse_obj(json_data)
+
         return instance
 
     @classmethod
@@ -128,6 +211,45 @@ class MiraResponse(MiraBase):
     # Additional methods or overrides if necessary
 
 
+"""
+# MiraCall class
+class MiraCall(MiraBase):
+    system_prompt: Optional[str] = None
+    prompt_template: Optional[str] = None
+    response_model: Optional[Type[BaseModel]] = None
+    json_mode: bool = True
+
+    def __init__(
+        self,
+        system_prompt=None,
+        prompt_template=None,
+        response_model=None,
+        json_mode=True,
+        **data,
+    ):
+        super().__init__(
+            system_prompt=system_prompt,
+            prompt_template=prompt_template,
+            response_model=response_model,
+            json_mode=json_mode,
+            **data,
+        )
+        if not self.call_time:
+            self.call_time = datetime.now()
+        if not self.chat_id:
+            self.chat_id = data.get("chat_id") or uuid.uuid4().hex
+
+    def __call__(self, func):
+        # Store the options in the function's attributes
+        func._system_prompt = self.system_prompt
+        func._prompt_template = self.prompt_template
+        func._response_model = self.response_model
+        func._json_mode = self.json_mode
+        return func
+"""
+
+
+# """
 # MiraCall class
 class MiraCall(MiraBase):
     chat_id: Optional[str] = None
@@ -140,6 +262,9 @@ class MiraCall(MiraBase):
             self.call_time = datetime.now()
         if not self.chat_id:
             self.chat_id = data.get("chat_id") or uuid.uuid4().hex
+
+
+# """
 
 
 # MiraChat class
