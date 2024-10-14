@@ -23,6 +23,7 @@ devenv.local.nix
 # Misc
 *.egg-info*
 *code_output/*
-*__pycache__*
+*__pycache__/*
+*.pyc
 
 

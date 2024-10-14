@@ -34,6 +34,8 @@ from contextvars import ContextVar
 # Import init vars:
 from miragram.src.base.config import db_url
 
+print(f"\n\ndb_url:\n\n{db_url}\n\n")
+
 
 # Configure logging
 from miragram.log.logger import get_logger
