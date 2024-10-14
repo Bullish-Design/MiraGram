@@ -33,6 +33,8 @@ from miragram.tests.functions.code import (
 )
 
 # Configure logging
+from miragram.src.base.config import code_output_dir, db_url
+
 from miragram.log.logger import get_logger
 
 logger = get_logger("SoftwareArchitect_Logging")
@@ -42,7 +44,7 @@ logger = get_logger("SoftwareArchitect_Logging")
 code_request = """
     Please create a python script that takes a folder directory as argument. Inside that directory is 3 sub directories: "code", "data", and "tests". The python script should run all pytest functions inside the "tests" directory by running the code inside the "code" directory against all data in the "data" directory. 
     """
-
+code_output_dir = code_output_dir
 
 # Functions ---------------------------------------------------------------------------------------------------------
 
@@ -105,8 +107,8 @@ def parse_filename(filepath: str):
     return file
 
 
-def test_code_request():
-    code_output_dir = "code_output/"
+def test_code_request(code_output_dir: str):
+    # code_output_dir = "code_output/"
     start_time = datetime.now()
     start_time_str = start_time.strftime("%y%m%d_%H%M%S")
     code_output_dir = code_output_dir + start_time_str + "/"
@@ -277,5 +279,9 @@ class SoftwareArchitect(BaseModel):
     def finish_code_example(self, goal: str, code: str): ...
 
 
-if __name__ == "__main__":
-    test_code_request()
+# if __name__ == "__main__":
+def test():
+    print(f"Testing code request:\n\nCode Output Directory: {code_output_dir}\n")
+    result = test_code_request(code_output_dir)
+    print(f"\nResult:  {result}\n")
+    print(f"\n{db_url}\n\n")

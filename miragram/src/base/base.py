@@ -251,7 +251,7 @@ class MiraCall(MiraBase):
 """
 
 
-# """
+"""
 # MiraCall class
 class MiraCall(MiraBase):
     chat_id: Optional[str] = None
@@ -263,10 +263,10 @@ class MiraCall(MiraBase):
         if not self.call_time:
             self.call_time = datetime.now()
         if not self.chat_id:
-            self.chat_id = data.get("chat_id") or uuid.uuid4().hex
+            self.chat_id = data.get("chat_id") or None
 
 
-# """
+"""
 
 
 # MiraChat class

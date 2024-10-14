@@ -7,6 +7,7 @@ from typing import (
     Any,
     Optional,
     Type,
+    List,
     Iterator,
 )
 
@@ -61,7 +62,13 @@ from mirascope.core.base.structured_stream import BaseStructuredStream
 
 
 # Library Imports -------------------------------------------------------------------
-from miragram.src.base.base import SingletonEngine, MiraResponse, MiraCall, MiraChat
+from miragram.src.base.base import (
+    SingletonEngine,
+    MiraResponse,
+    MiraBase,
+    #    MiraCall,
+    #    MiraChat,
+)
 
 
 # Tenacity Imports ------------------------------------------------------------------
@@ -141,6 +148,17 @@ def get_single_instance_from_db(class_name: str, instance_id: str):
 
 
 # Classes --------------------------------------------------------------------------
+# Intermediate Steps:
+class AskStep(BaseModel):
+    response_type: str
+    response_id: str
+
+
+class AskResult(BaseModel):
+    query: str
+    step_response_list: List[AskStep]
+
+
 # Dynamic database access model:
 class DynamicModel:
     def __init__(self, table_name: str):  # , engine: Engine):
@@ -523,6 +541,8 @@ class CombinedDecorator:
         return result
 
 
+"""
+# Old LLM_Call class
 class LLM_Call:
     def __init__(
         self,
@@ -605,3 +625,164 @@ class LLM_Call:
         # else:
         result = combined_decorator(func)
         return result
+"""
+
+
+# Updated MiraCall class:
+# Ideally auto saves the call params to the database
+# Should serve as a decorator for any call functions, and have additional options passed into it with an extra LLM_Call_Options decorator on top of it.
+class MiraCall(MiraBase):
+    system_prompt: Optional[str] = None
+    prompt_template: Optional[str] = None
+    response_model: Optional[BaseModel] = None
+    llm_model: Optional[str] = "gpt-4o-mini"
+    json_mode: bool = True
+    chat_id: Optional[str] = None
+    call_time: Optional[datetime] = None
+    stream: Optional[bool] = False
+
+    def __init__(
+        self,
+        system_prompt=None,
+        prompt_template=None,
+        response_model=None,
+        json_mode=True,
+        **data,
+    ):
+        super().__init__(
+            system_prompt=system_prompt,
+            prompt_template=prompt_template,
+            response_model=response_model,
+            json_mode=json_mode,
+            **data,
+        )
+        if not self.call_time:
+            self.call_time = datetime.now()
+        if not self.chat_id:
+            self.chat_id = data.get("chat_id") or None
+
+    def decorator(self):
+        call_decorator = Decorator(
+            openai.call,
+            model=self.llm_model,
+            response_model=self.response_model,
+            json_mode=self.json_mode,
+            stream=self.stream,
+        )
+        return call_decorator
+
+    def __call__(self, func):
+        # Store the options in the function's attributes
+        func._system_prompt = self.system_prompt
+        func._prompt_template = self.prompt_template
+        func._response_model = self.response_model
+        func._json_mode = self.json_mode
+        return func
+
+
+# Metadata options class
+class MetadataOptions:
+    def __init__(self, version=None, category=None):
+        self.version = version
+        self.category = category
+
+    def get_metadata(self):
+        return {"tags": {f"version:{self.version}", f"category:{self.category}"}}
+
+    def decorator(self):
+        return Decorator(metadata, self.get_metadata())
+
+
+# LLM model options class
+class LLMModelOptions:
+    def __init__(self, model="gpt-4o-mini", stream=False):
+        self.model = model
+        self.stream = stream
+
+    def get_model_options(self):
+        return {"model": self.model, "stream": self.stream}
+
+
+# Retry options class
+class RetryOptions:
+    def __init__(self, retries=3, retry_min=1, retry_max=5):
+        self.retries = retries
+        self.retry_min = retry_min
+        self.retry_max = retry_max
+
+    def decorator(self):
+        return RetryDecorator(
+            stop_func=stop_after_attempt(self.retries),
+            wait_func=wait_exponential(
+                multiplier=1, min=self.retry_min, max=self.retry_max
+            ),
+        )
+
+
+# New LLM_Call class
+class LLM_Call_Options:  # (BaseModel):
+    # metadata_options: Optional[MetadataOptions] = None
+    # llm_model_options: Optional[LLMModelOptions] = None
+    # retry_options: Optional[RetryOptions] = None
+
+    def __init__(
+        self,
+        metadata_options=None,
+        # llm_model_options=None,
+        retry_options=None,
+    ):
+        self.metadata_options = metadata_options or None  # MetadataOptions()
+        # self.llm_model_options = llm_model_options or LLMModelOptions()
+        self.retry_options = retry_options or RetryOptions()
+
+    def __call__(self, func):
+        # Extract prompt options from the function's attributes
+        system_prompt = getattr(func, "_system_prompt", None)
+        prompt_template_str = getattr(func, "_prompt_template", "")
+        response_model = getattr(func, "_response_model", None)
+        json_mode = getattr(func, "_json_mode", True)
+        call_model = getattr(func, "_llm_model", "gpt-4o-mini")
+        stream = getattr(func, "_stream", False)
+
+        # Build the prompt
+        if system_prompt:
+            prompt = system_prompt + "\n\n" + prompt_template_str
+        else:
+            prompt = prompt_template_str
+
+        # Create decorators
+        prompt_decorator = Decorator(prompt_template, prompt)
+        if self.metadata_options:
+            metadata_decorator = Decorator(
+                metadata, self.metadata_options.get_metadata()
+            )
+
+        # model_options = self.llm_model_options.get_model_options()
+        call_decorator = Decorator(
+            openai.call,
+            model=call_model,
+            response_model=response_model,
+            json_mode=json_mode,
+            stream=stream,
+        )
+
+        retry_decorator = self.retry_options.get_retry_decorator()
+
+        if self.metadata_options:
+            combined_decorator = CombinedDecorator(
+                retry_decorator,
+                call_decorator,
+                prompt_decorator,
+                metadata_decorator,
+            )
+        else:
+            combined_decorator = CombinedDecorator(
+                retry_decorator,
+                call_decorator,
+                prompt_decorator,
+            )
+
+        return combined_decorator(func)
+
+
+# Misc ------------------------------------------------------------------------------

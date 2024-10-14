@@ -3,7 +3,7 @@ name = "MiraGram"
 dynamic = ["version"]
 
 [project.scripts]
-test_architect = "miragram.tests.chats.architect:test_code_request"
+test_architect = "miragram.tests.chats.architect:test"
 
 #[tool.setuptools.packages.find]
 #packages = ["miragram*"]

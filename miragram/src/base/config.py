@@ -13,3 +13,4 @@ db_url = "postgresql://" + db_user + ":" + db_pass + "@localhost/" + db_name
 
 
 logdir = os.getenv("LOGDIR")
+code_output_dir = os.getenv("CODE_OUTPUT_DIR")
