@@ -15,7 +15,10 @@ from sqlalchemy import (
 from sqlalchemy.orm import sessionmaker
 import uuid
 import json
-import logging
+
+# Import init vars:
+from miragram.code.src.base.config import db_url
+
 
 # Configure logging
 from miragram.log.logger import get_logger
@@ -23,15 +26,23 @@ from miragram.log.logger import get_logger
 logger = get_logger("MiraBase")
 
 
-# SingletonEngine placeholder (replace with your actual implementation)
+# Singleton instance initialization:
 class SingletonEngine:
     _instance = None
+    _sqlmodel_instance = None
 
     @classmethod
     def get_instance(cls):
         if cls._instance is None:
-            cls._instance = create_engine("sqlite:///mira.db")  # Example with SQLite
+            cls._instance = create_engine(db_url)
         return cls._instance
+
+    @classmethod
+    def get_sqlmodel_instance(cls):
+        if cls._sqlmodel_instance is None:
+            cls._sqlmodel_instance = sqlmodel_create_engine(db_url)
+            SQLModel.metadata.create_all(cls._sqlmodel_instance)
+        return cls._sqlmodel_instance
 
 
 # MiraBase class

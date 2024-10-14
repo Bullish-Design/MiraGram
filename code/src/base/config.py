@@ -10,3 +10,6 @@ db_pass = os.getenv("POSTGRES_PASSWORD")
 
 
 db_url = "postgresql://" + db_user + ":" + db_pass + "@localhost/" + db_name
+
+
+logdir = os.getenv("LOGDIR")
