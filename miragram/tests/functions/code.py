@@ -5,7 +5,7 @@ import inspect
 
 # Library Imports ---------------------------------------------------------------------------------------------------
 from miragram.src.base.base import MiraResponse
-from miragram.src.call.call_base import LLM_Call
+from miragram.src.call.call_base import LLM_Call, MiraCall, LLM_Call_Options
 
 
 # Response Models ----------------------------------------------------------------------------------------------------
@@ -132,6 +132,13 @@ functionality_explanation_dec = LLM_Call(
     category="functionality_explanation",
 )
 
+miracall_functionality_explanation_dec = MiraCall(
+    system_prompt=None,
+    prompt_template=markdown_section_prompt,
+    response_model=MarkdownSection,
+    version="0001",
+    category="functionality_explanation",
+)
 
 # Self Ask Decorator
 # --------------------------------------------------------------------------------------------------------------------
@@ -147,6 +154,13 @@ self_ask_dec = LLM_Call(
     response_model=SelfAskCodeResponse,
     version="0001",
     category="self_ask_code",
+)
+
+miracall_self_ask_dec = MiraCall(
+    system_prompt=None,
+    prompt_template=self_ask_prompt,
+    response_model=SelfAskCodeResponse,
+    json_response=True,
 )
 
 # Finish Code Decorator
@@ -173,6 +187,12 @@ finish_code_dec = LLM_Call(
     category="finish_code",
 )
 
+miracall_finish_code_dec = MiraCall(
+    system_prompt=None,
+    prompt_template=finish_code_prompt,
+    response_model=CodeResponse,
+    json_response=True,
+)
 
 # Generate Tests
 # --------------------------------------------------------------------------------------------------------------------
@@ -204,7 +224,12 @@ gen_tests_dec = LLM_Call(
     category="gen_tests",
 )
 
-
+miracall_gen_tests_dec = MiraCall(
+    system_prompt=None,
+    prompt_template=gen_tests_prompt,
+    response_model=TestLibrary,
+    json_response=True,
+)
 # Generate Test Library
 # --------------------------------------------------------------------------------------------------------------------
 
@@ -235,4 +260,11 @@ gen_test_library_dec = LLM_Call(
     response_model=CodeResponse,
     version="0001",
     category="gen_test_library",
+)
+
+miracall_gen_test_library_dec = MiraCall(
+    system_prompt=None,
+    prompt_template=gen_test_library_prompt,
+    response_model=CodeResponse,
+    json_response=True,
 )

@@ -1,6 +1,6 @@
 from datetime import datetime
 from typing import Optional, Dict, Type, Any, ClassVar, Iterator
-from pydantic import BaseModel, PrivateAttr
+from pydantic import BaseModel, PrivateAttr, ConfigDict
 from sqlalchemy import (
     create_engine,
     Column,
@@ -126,7 +126,12 @@ class MiraBase(BaseModel):
 
     _new: bool = PrivateAttr(default=True)
 
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
     def __init__(self, **data):
+        logger.info(
+            f"INITIALIZING INSTANCE: Type: {type(self)} - {self.__class__.__name__}\n\n{data}\n"
+        )
         super().__init__(**data)
         self.id = data.get("id") or uuid.uuid4().hex
         context = _init_context_var.get()
@@ -144,6 +149,9 @@ class MiraBase(BaseModel):
             self.id = data["id"]
 
     def save(self):
+        logger.info(f"Saving {self.__class__.__name__} with ID {self.id}")
+        model_dump = self.model_dump_json()
+        logger.info(f"    Model dump: {model_dump}")
         json_data = json.loads(self.model_dump_json())
         class_name = self.__class__.__name__.lower()
 
@@ -208,7 +216,8 @@ class MiraBase(BaseModel):
 
 # MiraResponse class
 class MiraResponse(MiraBase):
-    content: Optional[str] = None
+    ...
+    # content: Optional[str] = None
 
     # Additional methods or overrides if necessary
 

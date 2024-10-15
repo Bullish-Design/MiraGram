@@ -1,11 +1,16 @@
 # Imports
 from pydantic import BaseModel, Field, ConfigDict, PrivateAttr
+from sqlalchemy.engine import result
 from sqlmodel import SQLModel, Relationship, Field as SQLField
 from typing import List, Dict, Any, Optional
 from typing_extensions import TypedDict
 import os
 from time import time
 from datetime import datetime
+from rich.console import Console
+from rich.tree import Tree
+from rich.syntax import Syntax
+from rich import print as rprint
 
 from mirascope.core import openai
 
@@ -20,6 +25,8 @@ from miragram.src.base.base import (
 from miragram.src.call.call_base import (
     IntermediateResponse,
     get_single_instance_from_db,
+    MiraCall,
+    LLM_Call_Options,
 )
 from miragram.tests.functions.code import (
     FewShot,
@@ -30,6 +37,10 @@ from miragram.tests.functions.code import (
     finish_code_dec,
     gen_tests_dec,
     gen_test_library_dec,
+    miracall_self_ask_dec,
+    miracall_finish_code_dec,
+    miracall_gen_tests_dec,
+    miracall_gen_test_library_dec,
 )
 
 # Configure logging
@@ -49,8 +60,138 @@ code_output_dir = code_output_dir
 # Functions ---------------------------------------------------------------------------------------------------------
 
 
+def print_class_attributes(obj, indent=""):
+    if not hasattr(obj, "__dict__"):
+        print(f"{indent}{obj}")
+        return
+
+    for attr_name, attr_value in vars(obj).items():
+        print(f"{indent}{attr_name}:")
+        if isinstance(attr_value, (int, float, bool, str, type(None))):
+            print(f"{indent}  {attr_value}")
+        else:
+            print_class_attributes(attr_value, indent + "  ")
+
+
+def break_long_lines(text, max_length=80):
+    lines = text.split("\n")
+    result = []
+
+    for line in lines:
+        if len(line) <= max_length:
+            result.append(line)
+        else:
+            current_line = ""
+            words = line.split()
+
+            for word in words:
+                if len(current_line) + len(word) + 1 <= max_length:
+                    current_line += " " + word if current_line else word
+                else:
+                    result.append(current_line)
+                    current_line = word
+
+            if current_line:
+                result.append(current_line)
+
+    return "\n".join(result)
+
+
+def print_class_attributes(obj, tree=None, indent=""):
+    if tree is None:
+        tree = Tree(f"[bold magenta]{type(obj).__name__}[/bold magenta]")
+
+    if not hasattr(obj, "__dict__"):
+        tree.add(f"[yellow]{repr(obj)}[/yellow]")
+        return tree
+
+    for attr_name, attr_value in vars(obj).items():
+        if isinstance(attr_value, (int, float, bool, type(None))):
+            tree.add(
+                f"[underline][cyan]{attr_name}[/cyan]: [yellow]{repr(attr_value)}[/yellow][/underline]"
+            )
+        elif isinstance(attr_value, str):
+            string_tree = tree.add(
+                f"[underline][cyan]{attr_name}[/cyan] ([green]str[/green][/underline]):"
+            )
+            split_string = break_long_lines(attr_value)
+            for line in split_string.split("\n"):
+                syntax = Syntax(
+                    f"{line}", "python", theme="monokai", line_numbers=False
+                )
+                string_tree.add(syntax)
+        elif isinstance(attr_value, (list, tuple, set)):
+            collection_tree = tree.add(
+                f"[underline][cyan]{attr_name}[/cyan] ([green]{type(attr_value).__name__}[/green][/underline]):"
+            )
+            for item in attr_value:
+                print_class_attributes(item, collection_tree, indent + "  ")
+        elif isinstance(attr_value, dict):
+            dict_tree = tree.add(
+                f"[underline][cyan]{attr_name}[/cyan] ([green]dict[/green][/underline]):"
+            )
+            for key, value in attr_value.items():
+                key_tree = dict_tree.add(f"[cyan]{repr(key)}[/cyan]:")
+                print_class_attributes(value, key_tree, indent + "  ")
+        elif hasattr(attr_value, "__dict__"):
+            subtree = tree.add(
+                f"[underline][cyan]{attr_name}[/cyan] ([green]{type(attr_value).__name__}[/green][/underline]):"
+            )
+            print_class_attributes(attr_value, subtree, indent + "  ")
+        else:
+            tree.add(
+                f"[underline][cyan]{attr_name}[/cyan]: [yellow]{repr(attr_value)}[/yellow][/underline]"
+            )
+
+    return tree
+
+
+def display_object(obj):
+    console = Console()
+    tree = print_class_attributes(obj)
+    console.print(tree)
+
+
+def process_class_attributes(obj):
+    if not hasattr(obj, "__dict__"):
+        return obj
+
+    for attr_name, attr_value in vars(obj).items():
+        if isinstance(attr_value, str):
+            setattr(obj, attr_name, attr_value.replace("\n", "\\n"))
+        elif isinstance(attr_value, (int, float, bool, type(None))):
+            continue
+        else:
+            setattr(obj, attr_name, process_class_attributes(attr_value))
+
+    return obj
+
+
+# Recursively replace all instances of a string in all attributes of a class
+def recursive_replace(obj, old, new):
+    if isinstance(obj, str):
+        return obj.replace(old, new)
+    elif isinstance(obj, dict):
+        return {k: recursive_replace(v, old, new) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        return [recursive_replace(elem, old, new) for elem in obj]
+    else:
+        for attr in obj.__dict__:
+            setattr(obj, attr, recursive_replace(getattr(obj, attr), old, new))
+            return obj
+
+
+# Print the llm output, add an additional slash to newlines:
+def print_output(output):
+    printable_output = process_class_attributes(
+        output
+    )  # recursive_replace(output, "\n", "\\n")
+    rprint(printable_output)
+
+
 # Function to store the output class name and id of an llm call for later call from db
 def store_output(output_list: list, output: MiraResponse):
+    logger.info(f"Software Architect | Storing Output: \n\n{output}\n")
     step = ArchitectAskStep(
         response_type=output.__class__.__name__,
         response_id=output.id,
@@ -180,7 +321,7 @@ class SoftwareArchitect(BaseModel):
         )
         step_ids = store_output(step_ids, finished_response)
         logger.warning(
-            f"Software Architect | Finished Response: {type(finished_response)}\n\n"
+            f"Software Architect | Finished Code Example Response: {type(finished_response)}\n"
         )
         final_file = write_code_file(
             "final",
@@ -211,9 +352,7 @@ class SoftwareArchitect(BaseModel):
             self.request, finished_response.code.code, test_case_list, test_data_list
         )
         step_ids = store_output(step_ids, final_test_library)
-        logger.warning(
-            f"Software Architect | Test Library: {type(final_test_library)}\n\n"
-        )
+        logger.warning(f"Software Architect | Test Library: {type(final_test_library)}")
         try:
             replaced_lib_import_text = final_test_library.code.code.replace(
                 "#IMPORT_LIB", ".final"
@@ -249,7 +388,7 @@ class SoftwareArchitect(BaseModel):
 
     # Regular Self Ask
     # @log_output(logger, state_log)
-    @self_ask_dec
+    @miracall_self_ask_dec
     def self_ask(
         self,
         query: str,
@@ -265,23 +404,76 @@ class SoftwareArchitect(BaseModel):
         }
 
     # @log_output(logger, state_log)
-    @gen_test_library_dec
+    @miracall_gen_test_library_dec
     def generate_test_library(
         self, goal: str, code: str, test_cases: list[str], test_data: list[TestData]
     ): ...
 
     # @log_output(logger, state_log)
-    @gen_tests_dec
+    @miracall_gen_tests_dec
     def generate_tests(self, goal: str, code: str): ...
 
     # @log_output(logger, state_log)
-    @finish_code_dec
+    @miracall_finish_code_dec
     def finish_code_example(self, goal: str, code: str): ...
 
 
+test_instances = [
+    ["07e6b8df7f774f32a24bff2fc2a08ea0", "CodeResponse"],
+    ["8079c46fcac54eb38813d26b7f65ef3c", "CodeResponse"],
+    ["226192648c4c494fafbf5de05d2db552", "TestLibrary"],
+    # [SelfAskCodeResponse, 272636118fe24469818940b488819b13],
+    # [CodeResponse, 4b5f8e0780c64072bffb1b8fb1a388c6],
+    # [TestLibrary, 6cc168768c9648dd858b84bb2332a383],
+    # [CodeResponse, 775fa2e3334a4ff99e85cf5e1318ff26],
+]
+
+
+def existing_result_test():
+    for test in test_instances:
+        result = get_single_instance_from_db(test[1], test[0])
+        print(f"\nResult Type: {type(result)}\n")
+        display_object(result)
+        print("\n\n")
+    print(f"\n{db_url}\n\n")
+
+
 # if __name__ == "__main__":
-def test():
+def new_test():
     print(f"Testing code request:\n\nCode Output Directory: {code_output_dir}\n")
     result = test_code_request(code_output_dir)
-    print(f"\nResult:  {result}\n")
+    print(f"\nResult Type: {type(result)}\n")
+    rprint(result)
+    result_list = []
+    print("\n\n")
+    # processed_result = process_class_attributes(result)
+    display_object(result)
+
+    print(f"\nResult:  {result}\n\n")
+    for step in result.step_response_list:
+        #    # print(f"\n{step}\n")
+        instance_step = [step.response_id, step.response_type]
+        result = get_single_instance_from_db(step.response_type, step.response_id)
+        print(f"\nResult Type: {type(result)}\n")
+        #    rprint(result)
+        #    print("\n\n")
+        #    # processed_result = process_class_attributes(result)
+        display_object(result)
+        #    # print_output(result)
+        #    # print_class_attributes(result)
+        result_list.append(instance_step)
+        print("\n\n")
+
+    for step in result_list:
+        step_str = f"    ['{step[0]}', '{step[1]}'],"
+        print(step_str)
+
     print(f"\n{db_url}\n\n")
+
+
+def test():
+    new_test()
+    # existing_result_test()
+
+
+# Misc

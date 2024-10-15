@@ -9,12 +9,17 @@ from typing import (
     Type,
     List,
     Iterator,
+    Union,
+    Type,
 )
 
 # Pydantic Imports ------------------------------------------------------------------
 from pydantic import (
     BaseModel,
     ValidationError,
+    field_validator,
+    field_serializer,
+    InstanceOf,
 )
 
 # SQLModel Imports ------------------------------------------------------------------
@@ -262,8 +267,19 @@ class RetryDecorator(Decorator):
         super().__init__(retry_func)
 
 
-# Generic combined decorator class
+# Combined decorator class
 class CombinedDecorator:
+    def __init__(self, *decorators):
+        self.decorators = decorators
+
+    def __call__(self, func):
+        for decorator in reversed(self.decorators):
+            func = decorator(func)
+        return func
+
+
+# Generic combined decorator class
+class CompleteDecorator(CombinedDecorator):
     def __init__(self, *decorators):
         """
         Combines multiple decorators and stores inputs/outputs in a Postgres DB.
@@ -541,7 +557,7 @@ class CombinedDecorator:
         return result
 
 
-"""
+# """
 # Old LLM_Call class
 class LLM_Call:
     def __init__(
@@ -625,7 +641,21 @@ class LLM_Call:
         # else:
         result = combined_decorator(func)
         return result
-"""
+
+
+# """
+def all_subclasses(cls):
+    subclasses = list(cls.__subclasses__()) + [
+        s for c in cls.__subclasses__() for s in all_subclasses(c)
+    ]
+    logger.info(f"Subclasses: {subclasses}")
+    return subclasses
+
+
+def model_instance(cls):
+    instances = Union.__getitem__(tuple(all_subclasses(cls)[::-1]))
+    logger.info(f"Model Instances: {instances}")
+    return instances
 
 
 # Updated MiraCall class:
@@ -634,13 +664,14 @@ class LLM_Call:
 class MiraCall(MiraBase):
     system_prompt: Optional[str] = None
     prompt_template: Optional[str] = None
-    response_model: Optional[BaseModel] = None
+    response_model: Optional[Type[MiraResponse]] = None  # | list[MiraResponse]] = None)
     llm_model: Optional[str] = "gpt-4o-mini"
     json_mode: bool = True
     chat_id: Optional[str] = None
     call_time: Optional[datetime] = None
     stream: Optional[bool] = False
 
+    """
     def __init__(
         self,
         system_prompt=None,
@@ -649,19 +680,41 @@ class MiraCall(MiraBase):
         json_mode=True,
         **data,
     ):
-        super().__init__(
-            system_prompt=system_prompt,
-            prompt_template=prompt_template,
-            response_model=response_model,
-            json_mode=json_mode,
-            **data,
-        )
+        super().__init__(**data)
+        self.system_prompt = system_prompt
+        self.prompt_template = prompt_template
+        self.response_model = response_model
+        self.json_mode = json_mode
+
         if not self.call_time:
             self.call_time = datetime.now()
         if not self.chat_id:
             self.chat_id = data.get("chat_id") or None
+    """
 
-    def decorator(self):
+    @field_validator("response_model", mode="before")
+    @classmethod
+    def validate_response_model(cls, val):
+        logger.info(
+            f"Validating Response Model | Is MiraResponse subclass: {issubclass(val, MiraResponse)} | Value: {val}"
+        )
+        if val is None or (isinstance(val, type) and issubclass(val, MiraResponse)):
+            return val
+        raise TypeError(
+            "Wrong type for 'response_model', must be a subclass of MiraResponse"
+        )
+
+    @field_serializer("response_model")
+    def serialize_response_model(self, response_model):
+        if response_model is None:
+            return None
+        return_response_model = (
+            response_model.__module__ + "." + response_model.__qualname__
+        )
+        logger.info(f"Serialized Response Model: {return_response_model}")
+        return return_response_model
+
+    def call_decorator(self):
         call_decorator = Decorator(
             openai.call,
             model=self.llm_model,
@@ -671,13 +724,30 @@ class MiraCall(MiraBase):
         )
         return call_decorator
 
+    def prompt_decorator(self):
+        if self.system_prompt:
+            prompt = self.system_prompt + "\n\n" + self.prompt_template
+        else:
+            prompt = self.prompt_template
+        prompt_decorator = Decorator(prompt_template, prompt)
+        return prompt_decorator
+
+    def generate_decorator(self):
+        call_decorator = self.call_decorator()
+        prompt_decorator = self.prompt_decorator()
+        combined_decorator = CombinedDecorator(call_decorator, prompt_decorator)
+        return combined_decorator
+
     def __call__(self, func):
         # Store the options in the function's attributes
+        logger.info(f"MiraCall | __call__ | {func.__name__}")
         func._system_prompt = self.system_prompt
         func._prompt_template = self.prompt_template
         func._response_model = self.response_model
         func._json_mode = self.json_mode
-        return func
+        miracall_decorator = self.generate_decorator()
+        return miracall_decorator(func)
+        # return func
 
 
 # Metadata options class
@@ -737,6 +807,7 @@ class LLM_Call_Options:  # (BaseModel):
 
     def __call__(self, func):
         # Extract prompt options from the function's attributes
+        logger.info(f"LLM_Call_Options | __call__ | {func.__name__}")
         system_prompt = getattr(func, "_system_prompt", None)
         prompt_template_str = getattr(func, "_prompt_template", "")
         response_model = getattr(func, "_response_model", None)
@@ -752,6 +823,7 @@ class LLM_Call_Options:  # (BaseModel):
 
         # Create decorators
         prompt_decorator = Decorator(prompt_template, prompt)
+
         if self.metadata_options:
             metadata_decorator = Decorator(
                 metadata, self.metadata_options.get_metadata()
