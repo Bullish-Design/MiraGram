@@ -5,6 +5,7 @@ from sqlmodel import SQLModel, Relationship, Field as SQLField
 from typing import List, Dict, Any, Optional
 from typing_extensions import TypedDict
 import os
+import json
 from time import time
 from datetime import datetime
 from rich.console import Console
@@ -41,6 +42,14 @@ from miragram.tests.functions.code import (
     miracall_finish_code_dec,
     miracall_gen_tests_dec,
     miracall_gen_test_library_dec,
+    test_markdown_section_prompt,
+    architect_prompts,
+    user_prompts,
+    system_prompts,
+    # PromptContainer,
+)
+from miragram.src.prompt.prompt_base import (
+    PromptContainer,
 )
 
 # Configure logging
@@ -479,9 +488,48 @@ def new_test():
     print(f"\n{db_url}\n\n")
 
 
+def iterate_prompts(container: PromptContainer):
+    print(f"\nContainer: {container}\n")
+    for prompt in container.prompts:
+        print(f"Prompt {type(prompt.name)} -> {prompt.name}")
+        print(
+            f"Prompt {type(prompt.prompt.prompt)} -> \n        {prompt.prompt.prompt}"
+        )
+        print(
+            f"Prompt {type(prompt.prompt.prompt_type)} -> {prompt.prompt.prompt_type}\n"
+        )
+        # print(f"\nPrompt: {prompt.prompt}\n")
+        # print(f"\nPrompt: {prompt.system_prompt}\n")
+        # print(f"\nPrompt: {prompt.user_prompt
+
+
 def test():
-    new_test()
-    # existing_result_test()
+    # new_test()
+    existing_result_test()
+    dump = architect_prompts.model_dump_json()
+    print(f"\n\nTest Prompt: {type(architect_prompts)}\n\n{dump}\n\n")
+    print(f"Test Prompt Dump:\n")
+    for key, value in json.loads(dump).items():
+        print(f"\n - {key}: \n{value}")
+
+    print(
+        f"\n\nArchitect Prompts: Type: {type(architect_prompts)}\n\n{architect_prompts}\n\n"
+    )
+    # for attr in test_markdown_section_prompt.model_dump_json():
+    #    print(f"\n{attr}: {getattr(test_markdown_section_prompt, attr)}\n")
+    # for prop in test_markdown_section_prompt
+    #    print(f"\n{prop}: {getattr(test_markdown_section_prompt, prop)}\n")
+    iterate_prompts(user_prompts)
+    print(f"\n\n")
+    iterate_prompts(system_prompts)
+    examine_prompt = system_prompts.prompts[-1]
+    print(
+        f"\n\nACCESSING PROMPT BY DOT NOTATION:\n\n{system_prompts.test_library_system}"  # ".test_library_system}\n"
+    )
+    # print(f"\n{test_markdown_section_prompt.system_prompt}\n")
+    # print(f"\n{test_markdown_section_prompt.user_prompt}\n")
+    # print(f"\n{test_markdown_section_prompt.prompt}\n")
+    print(f"\n\n{db_url}\n\n")
 
 
 # Misc
