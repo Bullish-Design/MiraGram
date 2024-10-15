@@ -426,6 +426,14 @@ test_instances = [
     # [CodeResponse, 4b5f8e0780c64072bffb1b8fb1a388c6],
     # [TestLibrary, 6cc168768c9648dd858b84bb2332a383],
     # [CodeResponse, 775fa2e3334a4ff99e85cf5e1318ff26],
+    ["142cf3e1456241f3a13d466ada8198cc", "SelfAskCodeResponse"],
+    ["216f035ef88248f19ad52c448d907933", "CodeResponse"],
+    ["b3d888abd5c4411c9f8208c601138bc8", "TestLibrary"],
+    ["2c87d94c48364f40bf8df8abf11fff3b", "CodeResponse"],
+    ["b04c9936db96468eb30194602a967070", "SelfAskCodeResponse"],
+    ["4d3efff88c774bfd825c3d6bbeed718c", "CodeResponse"],
+    ["89e7fddb3de74f19b17f961dd19754d8", "TestLibrary"],
+    ["01e2e16b47ae4ab8bd749055ceab112d", "CodeResponse"],
 ]
 
 
