@@ -522,9 +522,9 @@ def test():
     iterate_prompts(user_prompts)
     print(f"\n\n")
     iterate_prompts(system_prompts)
-    examine_prompt = system_prompts.prompts[-1]
+    prompt = system_prompts.test_library_system
     print(
-        f"\n\nACCESSING PROMPT BY DOT NOTATION:\n\n{system_prompts.test_library_system}"  # ".test_library_system}\n"
+        f"\n\nACCESSING PROMPT BY DOT NOTATION: {type(prompt)}\n\n{prompt}"  # ".test_library_system}\n"
     )
     # print(f"\n{test_markdown_section_prompt.system_prompt}\n")
     # print(f"\n{test_markdown_section_prompt.user_prompt}\n")

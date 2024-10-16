@@ -40,7 +40,8 @@ def extract_bracketed_text(text):
 class PromptType(StrEnum):
     USER = auto()
     SYSTEM = auto()
-    MODIFIER = auto()
+    USER_MODIFIER = auto()
+    SYSTEM_MODIFIER = auto()
 
     @classmethod
     def _missing_(cls, value):
@@ -78,12 +79,28 @@ class UserPrompt(IndividualPrompt):
         self.prompt.prompt_type = PromptType.USER  # "user"
 
 
+class UserModifierPrompt(IndividualPrompt):
+    name: str = ""
+
+    def model_post_init(self, __context):
+        logger.info(f"UserModifierPrompt instance created: {self}")
+        self.prompt.prompt_type = PromptType.USER_MODIFIER  # "user_modifier"
+
+
 class SystemPrompt(IndividualPrompt):
     name: str = ""
 
     def model_post_init(self, __context):
         logger.info(f"SystemPrompt instance created: {self}")
         self.prompt.prompt_type = PromptType.SYSTEM  # "system"
+
+
+class SystemModifierPrompt(IndividualPrompt):
+    name: str = ""
+
+    def model_post_init(self, __context):
+        logger.info(f"SystemModifierPrompt instance created: {self}")
+        self.prompt.prompt_type = PromptType.SYSTEM_MODIFIER  # "system_modifier"
 
 
 class PromptContainer(BaseModel):
