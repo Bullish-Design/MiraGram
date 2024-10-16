@@ -25,6 +25,7 @@ from miragram.src.prompt.prompt_generator import (
     SystemGoal,
     PromptInputGroup,
     SystemUserLink,
+    code_input,
 )
 
 # Logging -------------------------------------------------------------------------------------------------------------
@@ -58,16 +59,6 @@ prompt = """You are an expert software architect who can write excellent softwar
 # Classes -------------------------------------------------------------------------------------------------------------
 
 # Instances -----------------------------------------------------------------------------------------------------------
-goal = PromptExtraInput(input_name="goal", use_modifier="the following python code")
-code = PromptExtraInput(input_name="code")
-test_cases = PromptExtraInput(input_name="test cases", multiple=True)
-test_data = PromptExtraInput(
-    input_name="test data", multiple=True, use_modifier="use in testing"
-)
-code_input = PromptInputGroup(input_group=[goal, code, test_cases, test_data])
-
-
-# TODO: Is there a way to easily bundle up everything for easy export?
 
 
 # Misc ----------------------------------------------------------------------------------------------------------------

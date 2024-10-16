@@ -25,15 +25,18 @@ logger = get_logger("Prompt_Generator")
 
 # Prompts -------------------------------------------------------------------------------------------------------------
 code_goal = """Here is my goal for the following python code: {goal}"""
+
 test_cases = """ Here is my code: {code}
         Here is a list of test cases: {test_cases:list}
         Here is a list of test data to be used in testing: {test_data:list} """
+
 system_prompt_example = """You are an expert software architect who can write excellent software test suites.
 
         Examine the given python code and a list of test cases for that code, then - with the desired goal of that python code in mind - think about 
         how best to create a python test suite for that code and the given test cases. Then create and return that test suite, as well as an explanation
         of what that test suite does and how it works.
         """
+
 test_suite_requirements = """Ensure all necessary test data is included in the test suite as variables so it can be used in the test suite.i
 The test suite should be a self contained file that is able to be run and return a report of all passing and failing tests.
 
@@ -229,17 +232,21 @@ class PromptGenerator(BaseModel):
 
 
 # Prompt Instances -----------------------------------------------------------------------------------------------------------
-goal = PromptExtraInput(input_name="goal", use_modifier="the following python code")
-code = PromptExtraInput(input_name="code")
-test_cases = PromptExtraInput(input_name="test cases", multiple=True)
-test_data = PromptExtraInput(
+code_goal_input = PromptExtraInput(
+    input_name="goal", use_modifier="the following python code"
+)
+code_input = PromptExtraInput(input_name="code")
+test_cases_input = PromptExtraInput(input_name="test cases", multiple=True)
+test_data_input = PromptExtraInput(
     input_name="test data", multiple=True, use_modifier="use in testing"
 )
 
 
 # Input Groups --------------------------------------------------------------------------------------------------------
 
-code_input = PromptInputGroup(input_group=[goal, code, test_cases, test_data])
+code_input = PromptInputGroup(
+    input_group=[code_goal_input, code_input, test_cases_input, test_data_input]
+)
 
 
 # TODO: Is there a way to easily bundle up everything for easy export?
