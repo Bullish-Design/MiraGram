@@ -14,8 +14,8 @@ from miragram.src.prompt.prompt_base import (
     PromptContainer,
     PromptModifiers,
     PromptGroup,
-    PromptBase,
-    PromptModel,
+    PromptBase,  # This is the class that will be used to generate the prompt
+    PromptModel,  # This class holds Containss of user and system prompts
 )
 
 # Logging -------------------------------------------------------------------------------------------------------------
