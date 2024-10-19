@@ -1,9 +1,12 @@
 [project]
 name = "MiraGram"
-dynamic = ["version"]
+dynamic = ["dependencies", "version"]
 
 [project.scripts]
 test_architect = "miragram.tests.chats.architect:test"
 
 #[tool.setuptools.packages.find]
 #packages = ["miragram*"]
+
+[tool.setuptools.dynamic]
+dependencies = { file = "requirements.txt" }
