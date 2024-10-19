@@ -41,7 +41,6 @@ matplotlib-inline==0.1.7
 mdit-py-plugins==0.4.2
 mdurl==0.1.2
 mergedeep==1.3.4
--e file:///home/andrew/Documents/Projects/MiraGram
 mirascope==1.4.0
 mistune==3.0.2
 mkdocs==1.6.1
