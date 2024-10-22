@@ -4,7 +4,8 @@ dynamic = ["dependencies", "version"]
 
 [project.scripts]
 test_architect = "miragram.tests.chats.architect:test"
-
+test_parsy = "miragram.tests.chats.parser_architect:test_parsy_request"
+gen_project = "miragram.tests.chats.parser_architect:gen_project_structure"
 #[tool.setuptools.packages.find]
 #packages = ["miragram*"]
 
