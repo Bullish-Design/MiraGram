@@ -8,6 +8,7 @@ test_parsy = "miragram.tests.chats.parser_architect:test_parsy_request"
 gen_project = "miragram.tests.chats.parser_architect:gen_project_structure"
 #[tool.setuptools.packages.find]
 #packages = ["miragram*"]
+askGPT = "miragram.tests.functions.parser:askGPT"
 
 [tool.setuptools.dynamic]
 dependencies = { file = "requirements.txt" }

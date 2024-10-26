@@ -56,6 +56,8 @@ from sqlalchemy.orm import sessionmaker, declarative_base
 
 
 # Mirascope Imports -----------------------------------------------------------------
+from openai import OpenAI
+
 from mirascope.core import (
     openai,
     prompt_template,
@@ -74,7 +76,10 @@ from miragram.src.base.base import (
     #    MiraCall,
     #    MiraChat,
 )
-
+from miragram.src.base.config import (
+    local_model_url,
+    local_model_name,
+)
 
 # Tenacity Imports ------------------------------------------------------------------
 from tenacity import retry, stop_after_attempt, wait_exponential
@@ -84,6 +89,11 @@ from tenacity import retry, stop_after_attempt, wait_exponential
 from miragram.log.logger import get_logger
 
 logger = get_logger("CallBase")
+
+client = OpenAI(
+    api_key="Local",
+    base_url=local_model_url,
+)
 
 
 # Functions -------------------------------------------------------------------------
@@ -670,6 +680,7 @@ class MiraCall(MiraBase):
     chat_id: Optional[str] = None
     call_time: Optional[datetime] = None
     stream: Optional[bool] = False
+    local: Optional[bool] = False
 
     """
     def __init__(
@@ -715,8 +726,12 @@ class MiraCall(MiraBase):
         return return_response_model
 
     def call_decorator(self):
+        if self.local:
+            openai_call = openai.call("Llama_3.2", client=client)
+        else:
+            openai_call = openai.call
         call_decorator = Decorator(
-            openai.call,
+            openai_call,
             model=self.llm_model,
             response_model=self.response_model,
             json_mode=self.json_mode,

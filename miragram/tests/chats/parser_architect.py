@@ -47,7 +47,7 @@ from miragram.tests.functions.parser import (
     miracall_finish_code_dec,
     miracall_gen_tests_dec,
     miracall_gen_test_library_dec,
-    test_markdown_section_prompt,
+    # test_markdown_section_prompt,
     architect_prompts,
     user_prompts,
     system_prompts,
@@ -61,6 +61,9 @@ from miragram.tests.functions.parser import (
     RequirementMilestoneList,
     SystemRequirement,
     # PromptContainer,
+    miracall_condensed_functionality,
+    FunctionalityList,
+    CoreFunctionality,
 )
 from miragram.src.prompt.prompt_base import (
     PromptContainer,
@@ -96,29 +99,6 @@ expected_output_1 = ParserOutput(
 )
 
 
-# Parsy Functions ---------------------------------------------------------------------------------------------------
-@miracall_parsy_request
-def parsy_request(input: ParserInput, output: ParserOutput) -> ParsyFunction: ...
-
-
-@miracall_pydantic_request
-def pydantic_request(description: str) -> PydanticResponse: ...
-
-
-@miracall_requirements
-def get_requirements(goal: str) -> SystemRequirementsList: ...
-
-
-@pydantic_ideas
-def get_class_ideas(goal: str) -> ClassIdeas: ...
-
-
-@miracall_milestones
-def create_milestones(
-    goal: str, requirement: SystemRequirement
-) -> RequirementMilestoneList: ...
-
-
 def parse_output_code(output_code: str):
     code_lines = output_code.split("\n")
     code_str = ""
@@ -127,25 +107,35 @@ def parse_output_code(output_code: str):
     return code_str
 
 
-# Parsy Test Functions ----------------------------------------------------------------------------------------------
-goal = (
-    "I want to create a highly flexible parsing library using the Python Parsy library."
-)
-
-# goal = "I want to create a framework of pydantic classes that represent the software product development process, in order to represent the process in code."
-
-
 def print_pydantic_model(model: PydanticResponse):
-    print(f"class {model.class_name}({model.inherits}):")
+    print(f"\nclass {model.class_name}({model.inherits}):")
+    print(f"""    '''
+    {model.description}
+    '''""")
     for attr in model.attributes:
         print(f"    {attr.name}: {attr.attr_type}  # {attr.description}")
 
     print(f"\n")
+    for func in model.functions:
+        args = ""
+        for arg in func.input_args:
+            args += f"{arg.name}: {arg.arg_type}, "
+        if len(args) > 0:
+            args = args[:-2]
+        # args = f"{arg.name}: {arg.arg_type},"
+        #    for arg in func.input_args
+        #    if len(func.input_args) > 0
+
+        print(f"    def {func.name}({args}) -> {func.output_type}: ...")
+        print(f"""        '''
+        {func.description}
+        '''
+        """)
 
 
 def print_breakline():
     print(
-        f"\n\n---------------------------------------------------------------------------------------------------\n\n"
+        f"\n---------------------------------------------------------------------------------------------------\n"
     )
 
 
@@ -157,42 +147,97 @@ def print_milestone_requirements(req_list: RequirementMilestoneList):
         print(f"   Description: {req.description}")
         print(f"          Why?: {req.why_milestone}")
         print(f"           MVP: {req.mvp_description}\n")
-    print_breakline()
+    # print_breakline()
+
+
+# Parsy Functions ---------------------------------------------------------------------------------------------------
+@miracall_condensed_functionality
+def condense_functionality(
+    goal: str, requirements: SystemRequirementsList
+) -> FunctionalityList: ...
+
+
+@miracall_parsy_request
+def parsy_request(input: ParserInput, output: ParserOutput) -> ParsyFunction: ...
+
+
+@miracall_pydantic_request
+def pydantic_request(
+    goal: str, functionality_groups: FunctionalityList, description: str
+) -> PydanticResponse: ...
+
+
+@miracall_requirements
+def get_requirements(goal: str) -> SystemRequirementsList: ...
+
+
+@pydantic_ideas
+def get_class_ideas(
+    goal: str, functionality_groups: FunctionalityList
+) -> ClassIdeas: ...
+
+
+@miracall_milestones
+def create_milestones(
+    goal: str, functionality: CoreFunctionality
+) -> RequirementMilestoneList: ...
+
+
+# Parsy Test Functions ----------------------------------------------------------------------------------------------
+goal = (
+    "I want to create a highly flexible parsing library using the Python Parsy library."
+)
+
+# goal = "I want to create a framework of pydantic classes that represent the software product development process, in order to represent the process in code."
+goal = "I want to create a file management library that provides directory and file reading/writing/creation/renaming capabilities all from a Pydantic baseclass. There should be an inherited class to represent directories, and another inherited class to represent files. Keep as much functionality within the baseclass as possible."
+
+
+# goal = "I want to create a TUI for viewing files using the Textual Python library. It should consist of a Text Area and a sidebar with another text area and a submission button for inputting text. If a filename is input to the text area and the button is clicked, the text area should read the document from the file and display them in the text area. There should be a second 'save' button in the sidebar that saves any edits made in the text area back to file."
 
 
 def gen_pydantic_ideas(goal):
     reqs = get_requirements(goal)
     milestones = []
-
+    requirement_list = []
     print(f"\nSystem Requirements:")
     for req in reqs.requirements:
         print(f"    {req.requirement_name}:\n        {req.requirement_description}")
-    count = 0
-    for req in reqs.requirements:
-        count += 1
-        print(f"\nGenerating Requirement Milestones {count}")
-        milestone_list = create_milestones(goal, req)
-        milestones.append({req.requirement_name: milestone_list})
+        requirement_list.append(req)
+    condensed_functionality = condense_functionality(goal, reqs)  # requirement_list)
+    print(f"\n\nCondensed Functionality:\n")
+    # print(f"\n\n{condensed_functionality}\n\n")
+    for func in condensed_functionality.functionality_list:
+        print(
+            f"    Functionality Group: {func.functionality_name}\n                   Desc: {func.functionality_description}\n"
+        )
 
-    class_ideas = get_class_ideas(goal)
+    count = 0
+    for req in condensed_functionality.functionality_list:
+        count += 1
+        print(f"\nGenerating Functional Requirement Milestones {count}")
+        milestone_list = create_milestones(goal, req)
+        milestones.append({req.functionality_name: milestone_list})
+    print(f"\n\nMilestones:")
+    for milestone in milestones:
+        for milestone_name, milestone_list in milestone.items():
+            print_breakline()
+            print(f"\n{milestone_name} milestones:\n")
+            print_milestone_requirements(milestone_list)
+    class_ideas = get_class_ideas(goal, condensed_functionality)
     print(f"\n\nClass Ideas:")
     for idea in class_ideas.idea_list:
         print(f"    {idea.description}")
     pydantic_models = []
-    print(f"\n\n")
+    # print(f"\n\n")
     for idea in class_ideas.idea_list:
-        pydantic_class = pydantic_request(idea.description)
+        pydantic_class = pydantic_request(
+            goal, condensed_functionality, idea.description
+        )
         pydantic_models.append(pydantic_class)
     # for model in pydantic_models:
     #    print(f"\n{model}\n")
     for model in pydantic_models:
         print_pydantic_model(model)
-    print(f"\n\nMilestones:")
-    for milestone in milestones:
-        for milestone_name, milestone_list in milestone.items():
-            print_breakline()
-            print(f"\n{milestone_name}:")
-            print_milestone_requirements(milestone_list)
 
 
 def gen_project_structure():

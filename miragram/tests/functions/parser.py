@@ -19,6 +19,67 @@ from miragram.src.prompt.prompt_base import (
     PromptContainer,
 )
 
+# Typer Script ------------------------------------------------------------------------------------------------------
+import typer
+from pathlib import Path
+from typing import Optional
+import sys
+
+'''
+# Create a Typer app instance
+app = typer.Typer(help="Example script that can be called from pyproject.toml")
+
+
+@app.command()
+def _main(
+    input_file: Path = typer.Argument(
+        ...,  # ... means required
+        help="Path to input file",
+        exists=True,
+        file_okay=True,
+        dir_okay=False,
+        resolve_path=True,
+    ),
+    output_dir: Path = typer.Option(
+        "./output",
+        "--output-dir",
+        "-o",
+        help="Directory for output files",
+        dir_okay=True,
+        file_okay=False,
+        resolve_path=True,
+        create_dir=True,
+    ),
+    verbose: bool = typer.Option(
+        False, "--verbose", "-v", help="Enable verbose output"
+    ),
+) -> int:
+    """
+    Process input file and save results to output directory.
+    """
+    try:
+        if verbose:
+            typer.echo(f"Processing {input_file}")
+            typer.echo(f"Output directory: {output_dir}")
+
+        # Your script logic here
+
+        return 0
+
+    except Exception as e:
+        typer.echo(f"Error: {e}", err=True)
+        return 1
+'''
+
+
+def askGPT(request: str):
+    """
+    Entry point function for pyproject.toml script definition.
+    """
+    print(f"\n\nStarting up script....\n\n")
+    return
+
+
 # Variables ----------------------------------------------------------------------------------------------------------
 user_prompt_list = []
 system_prompt_list = []
@@ -27,12 +88,36 @@ PromptContainer = PromptContainer
 
 # Response Models ----------------------------------------------------------------------------------------------------
 # Code llm decorator functions:
+
+
+# This class describes the shape of an attribute for a Pydantic class
 class PydanticAttribute(MiraResponse):
     name: str = Field(description="The name of a Pydantic class attribute")
-    attr_type: str = Field(description="The type of a pydantic attribute's value")
+    attr_type: str = Field(
+        description="The type of a pydantic attribute's value. Could be a standard python type, or any of the created Pydantic models generated in the user request."
+    )
     description: str = Field(description="The description of a pydantic attribute.")
 
 
+# This class describes the shape of an input argument for a python function
+class FunctionInput(MiraResponse):
+    name: str = Field(description="The name of the input argument for a function.")
+    arg_type: str = Field(description="The type for an input argument of a function.")
+
+
+# This class describes the shape of a function for a Pydantic class.
+class PydanticFunction(MiraResponse):
+    name: str = Field(description="The name of a function in a Pydantic class.")
+    input_args: List[FunctionInput]  # = Field(description="")
+    description: str = Field(
+        description="The function description of a function in a pydantic class. This will be used as the docstring, so be sure to include information from the input_args and describe what the function does to them, before finishing with the output description and it's type."
+    )
+    output_type: str = Field(
+        description="The type(s) for the output(s) from the function."
+    )
+
+
+# This class describes the shape of a Pydantic class - the name, description, inheritance, attributes, and functions.
 class PydanticResponse(MiraResponse):
     description: str = Field(
         description="Description of the Pydantic model. Will be used as the class docstring."
@@ -41,14 +126,15 @@ class PydanticResponse(MiraResponse):
         description="Class name of the Pydantic model. Should follow good naming practices."
     )
     inherits: str = Field(
-        description="The inherited class for the Pydantic model. Is generally 'BaseModel', which represents the generic Pydantic base model."
+        description="The inherited class for the Pydantic model. Is generally 'BaseModel', which represents the generic Pydantic base model, but could also be one of the other Pydantic classes generated from the user request."
     )
-    # attributes: Dict[str, str] = Field(
-    #    description="Attributes of the Pydantic model, returned as a dictionary with the attribute name as the key and the attribute type as the value. If the attribute has a 'Field(description=...', that should be included in the value of the
-    # )
     attributes: List[PydanticAttribute]
+    functions: List[PydanticFunction] = Field(
+        description="A list of functions contained within the Pydantic class, if any."
+    )
 
 
+# This class describes the shape of a system requirement for a software project
 class SystemRequirement(MiraResponse):
     requirement_name: str = Field(
         description="The requirement name, for a requirement of a software system."
@@ -58,10 +144,27 @@ class SystemRequirement(MiraResponse):
     )
 
 
+# This class describes the shape of a core functionality for a software project
+class CoreFunctionality(MiraResponse):
+    functionality_name: str = Field(
+        description="The name of the core functionality category"
+    )
+    functionality_description: str = Field(
+        description="A brief description of the core functionality comprised within the category."
+    )
+
+
+# This class describes the shape of a list of functionality for a software project
+class FunctionalityList(MiraResponse):
+    functionality_list: List[CoreFunctionality]
+
+
+# This class describes the shape of a list of requirements for a software project
 class SystemRequirementsList(MiraResponse):
     requirements: List[SystemRequirement]
 
 
+# This class describes the shape of a requirement milestone for a core functionality of a software project.
 class RequirementMilestone(MiraResponse):
     description: str = Field(description="A brief description of the milestone")
     why_milestone: str = Field(
@@ -72,16 +175,19 @@ class RequirementMilestone(MiraResponse):
     )
 
 
+# This class describes the shape of a list of requirement milestones for a software project, each one getting successively more feature filled and refined.
 class RequirementMilestoneList(MiraResponse):
     milestone_list: List[RequirementMilestone]
 
 
+# This class describes the shape of a
 class ClassIdea(MiraResponse):
     description: str = Field(
         description="A description of a Pydantic class that should be created in order to meet the needs of a software system."
     )
 
 
+# This class describes the shape of a
 class ClassIdeas(MiraResponse):
     idea_list: List[ClassIdea] = Field(
         description="A list of Pydantic class model ideas."
@@ -109,66 +215,30 @@ class ParsyFunction(MiraResponse):
     )
 
 
+class ProjectFile(MiraResponse):
+    name: str = Field(
+        description="The name of the file, including the filetype suffix."
+    )
+    # file_type: str = Field(description="The file type. Examples would be 'Text, Python, Markdown')
+    description: str = Field(
+        description="A brief description of the file contents, and it's purpose within the overall project."
+    )
+
+
 class ProjectDirectory(MiraResponse):
-    parent_directory: str = Field(
-        description="The name of the parent directory this directory exists within."
-    )
+    name: str = Field(description="The name of the directory.")
     directory_readme: str = Field(
-        description="The contents of the readme file that exists in every folder within the project. Describes the purpose and functionality of the code contained within."
+        description="The contents of the readme file that exists in every folder within the project. Describes the purpose and functionality of the files and subfolders contained within."
     )
-
-
-class MarkdownSection(MiraResponse):
-    title: str = Field(description="Title of a markdown section")
-    content: str = Field(description="Content of a markdown section")
-
-
-class MarkdownResponse(MiraResponse):
-    sections: List[MarkdownSection] = Field(
-        description="List of markdown sections that make up the response."
+    sub_folders: List["ProjectDirectory"] = Field(
+        description="A list of folders underneath the current folder"
     )
+    files: List[ProjectFile]
 
 
 class FewShot(MiraResponse):
     question: str
     answer: str
-
-
-class CodeBlock(MiraResponse):
-    code: str = Field(
-        description="Detailed python code that solves the user request in the form of a single formatted code block."
-    )
-
-
-class CodeResponse(MiraResponse):
-    explanation: str = Field(
-        description="All explanation or preamble necessary to understand the code goes here. There should be no explanation in the code itself aside from comments."
-    )
-    code: CodeBlock
-
-
-class TestData(MiraResponse):
-    input: str = Field(description="Test Input Data")
-    output: str = Field(
-        description="The desired output data after running the test case"
-    )
-
-
-class TestCase(MiraResponse):
-    description: str = Field(
-        description="A brief description detailing why the test case is needed."
-    )
-    test_data: list[TestData]
-    test_case: CodeBlock
-
-
-class TestLibrary(MiraResponse):
-    test_cases: list[TestCase]
-
-
-class SelfAskCodeResponse(MiraResponse):
-    self_ask: list[FewShot]
-    response: CodeResponse
 
 
 # Define few-shot examples
@@ -224,38 +294,9 @@ def date():
         ),
     )
 ]
-# Functionality List Decorator
-# --------------------------------------------------------------------------------------------------------------------
 
 
-test_markdown_section_prompt_system = """You are an expert Software Architect who excels at planning and designing software systems. 
-
-    Examine the functionality request below and think about how best to integrate the given request into a software system. Then write a detailed response that outlines how the request should be integrated into a software system. 
-
-    The response should consist of a Markdown section with a header that briefly describes the section, followed by a detailed text-only explanation of how best to implement the request in a software system."""
-
-test_markdown_section_prompt_user = """Here is my overall high-level goal for the software system: {goal}
-    Here is the specific functionality I want to achieve: {request}
-    Explain how best to integrate this functionality into a software system."""
-
-test_markdown_section_prompt = PromptBase(
-    user_prompt=test_markdown_section_prompt_user,
-    system_prompt=test_markdown_section_prompt_system,
-)
-
-markdown_section_user = UserPrompt(
-    name="markdown_user",
-    prompt=PromptInstance(prompt=test_markdown_section_prompt_user),
-)
-markdown_section_system = SystemPrompt(
-    name="markdown_system",
-    prompt=PromptInstance(prompt=test_markdown_section_prompt_system),
-)
-
-user_prompt_list.append(markdown_section_user)
-system_prompt_list.append(markdown_section_system)
-
-# Pydantic class generator
+# System requirements Generation
 # --------------------------------------------------------------------------------------------------------------------
 functionality_requirements_prompt = """
     You are an expert Software Architect who excels at planning and designing software systems.
@@ -267,16 +308,30 @@ mvp_test_class = """Below is a brief description of a minimum viable requirement
 
 """
 
+core_functionality_requirements = """Here is my overall goal for the software system: {goal}.
+
+Given the following list of requirements for the software system, distill the functionality down to the core functionality 'modules' the software system will contain. Group common functionality by what would commonly exist together in production software systems. For example: If the system has requirements for file creation, file reading, file writing, and file renaming, these would generally be grouped into a functional module like 'FileIO'.
+
+Here is the list of requirements for the software system: {requirements}
+
+Please provide the grouped/condensed list of core functionality for the software system.
+"""
+
 user_create_requirements = """Here's my goal for the software system: {goal}.
 Please generate a list of functionality requirements that will be needed to achieve that goal. Requirements should be in the form of a Name, and then a brief description. Only consider technical requirements - do not include any requirements related to documentation, stakeholder/user feedback, etc.
 """
 
-user_create_pydantic = """Here's my goal for the software system: {goal}.
-Please generate a list of descriptions of pydantic class models that would help me to achieve that goal."""
-
 user_create_milestones = """Here's my goal for the software system: {goal}.
-Here's a system requirement that is required to meet that ultimate goal: {requirement}
-Please generate a list of milestones that, if achieved, would ensure that I would achieve that system requirement."""
+Here's a core functionality that is required to meet that ultimate goal: {functionality}
+Please generate a list of milestones that, if achieved, would ensure that I would fully achieve that system requirement."""
+
+miracall_condensed_functionality = MiraCall(
+    system_prompt=functionality_requirements_prompt,
+    prompt_template=core_functionality_requirements,
+    response_model=FunctionalityList,
+    version="0001",
+    category="project_requirements",
+)
 
 miracall_milestones = MiraCall(
     system_prompt=functionality_requirements_prompt,
@@ -294,18 +349,28 @@ miracall_requirements = MiraCall(
     category="project_requirements",
 )
 
+# Pydantic Classes:
+user_create_pydantic = """Here's my goal for the software system: {goal}.
+Here is a list of core functionality groups that the software system will need to be able to handle: {functionality_groups}
+Please generate a list of descriptions of pydantic class models that would help me to achieve that goal. """
+
+
+pydantic_system_prompt = """You are an expert software engineer who can write good clean code and is great at creating Pydantic models. Your models contain all necessary attributes, and have excellent class and attribute names that perfectly describe their purpose. You excel at creating abstraction layers to enable software developers to quickly accomplish their goals when using the Pydantic models you've created. 
+
+Consider the overall goal of the software system described below, as well as the functional categories the software system is grouped into. Then, with all that in mind, think carefully of how best to structure a hierarchy of Pydantic models, and then respond to the user's request. Ensure that any pydantic classes created integrate well within the system's structure. Abstraction is incredibly important to ensure rapid development, so consider class inheritance before you create any classes."""
+
+pydantic_user_prompt = """Here's my overall goal for the software system: {goal}.
+
+Here is the description the specific functionality that this class will need to provide: {description}
+Please create a Pydantic model for the described class. """
+
 pydantic_ideas = MiraCall(
-    system_prompt=functionality_requirements_prompt,
-    prompt_template=user_create_requirements,
+    system_prompt=pydantic_system_prompt,
+    prompt_template=user_create_pydantic,
     response_model=ClassIdeas,
     version="0001",
     category="project_requirements",
 )
-
-pydantic_system_prompt = """You are an expert software engineer who can write good clean code and is great at creating Pydantic models. Your models contain all necessary attributes, and have excellent class and attribute names that perfectly describe their purpose. """
-
-pydantic_user_prompt = """Here is the description of the input data that needs to be stored in the pydantic model: {description}
-Please create a Pydantic model that represents the given input data."""
 
 miracall_pydantic_request = MiraCall(
     system_prompt=pydantic_system_prompt,
@@ -332,6 +397,88 @@ miracall_parsy_request = MiraCall(
     version="0001",
     category="parsy_parser",
 )
+
+
+# ====================================================================================================
+
+
+# ====================================================================================================
+
+
+# ====================================================================================================
+
+
+# ====================================================================================================
+
+
+# ====================================================================================================
+
+
+# ====================================================================================================
+
+
+# ====================================================================================================
+
+
+# ====================================================================================================
+
+
+# ====================================================================================================
+
+
+# ====================================================================================================
+
+
+# ====================================================================================================
+
+
+class MarkdownSection(MiraResponse):
+    title: str = Field(description="Title of a markdown section")
+    content: str = Field(description="Content of a markdown section")
+
+
+class MarkdownResponse(MiraResponse):
+    sections: List[MarkdownSection] = Field(
+        description="List of markdown sections that make up the response."
+    )
+
+
+class CodeBlock(MiraResponse):
+    code: str = Field(
+        description="Detailed python code that solves the user request in the form of a single formatted code block."
+    )
+
+
+class CodeResponse(MiraResponse):
+    explanation: str = Field(
+        description="All explanation or preamble necessary to understand the code goes here. There should be no explanation in the code itself aside from comments."
+    )
+    code: CodeBlock
+
+
+class TestData(MiraResponse):
+    input: str = Field(description="Test Input Data")
+    output: str = Field(
+        description="The desired output data after running the test case"
+    )
+
+
+class TestCase(MiraResponse):
+    description: str = Field(
+        description="A brief description detailing why the test case is needed."
+    )
+    test_data: list[TestData]
+    test_case: CodeBlock
+
+
+class TestLibrary(MiraResponse):
+    test_cases: list[TestCase]
+
+
+class SelfAskCodeResponse(MiraResponse):
+    self_ask: list[FewShot]
+    response: CodeResponse
+
 
 # Markdown Section Decorator
 # --------------------------------------------------------------------------------------------------------------------
