@@ -331,6 +331,7 @@ miracall_condensed_functionality = MiraCall(
     response_model=FunctionalityList,
     version="0001",
     category="project_requirements",
+    local=True,
 )
 
 miracall_milestones = MiraCall(
@@ -339,6 +340,7 @@ miracall_milestones = MiraCall(
     response_model=RequirementMilestoneList,
     version="0001",
     category="project_requirements",
+    local=True,
 )
 
 miracall_requirements = MiraCall(
@@ -347,6 +349,7 @@ miracall_requirements = MiraCall(
     response_model=SystemRequirementsList,
     version="0001",
     category="project_requirements",
+    local=True,
 )
 
 # Pydantic Classes:
@@ -370,6 +373,7 @@ pydantic_ideas = MiraCall(
     response_model=ClassIdeas,
     version="0001",
     category="project_requirements",
+    local=True,
 )
 
 miracall_pydantic_request = MiraCall(
@@ -378,6 +382,7 @@ miracall_pydantic_request = MiraCall(
     response_model=PydanticResponse,
     version="0001",
     category="pydantic_model_request",
+    local=True,
 )
 
 # Parsy Parser Generator:
@@ -396,6 +401,7 @@ miracall_parsy_request = MiraCall(
     response_model=ParsyFunction,
     version="0001",
     category="parsy_parser",
+    local=True,
 )
 
 

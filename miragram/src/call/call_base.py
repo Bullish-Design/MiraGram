@@ -727,16 +727,26 @@ class MiraCall(MiraBase):
 
     def call_decorator(self):
         if self.local:
-            openai_call = openai.call("Llama_3.2", client=client)
+            openai_call = openai.call
+            # openai_call = openai.call(model="llama", client=client)
+            call_decorator = Decorator(
+                openai_call,
+                model="llama",
+                client=client,
+                response_model=self.response_model,
+                json_mode=self.json_mode,
+                stream=self.stream,
+            )
         else:
             openai_call = openai.call
-        call_decorator = Decorator(
-            openai_call,
-            model=self.llm_model,
-            response_model=self.response_model,
-            json_mode=self.json_mode,
-            stream=self.stream,
-        )
+            # openai_call = openai.call
+            call_decorator = Decorator(
+                openai_call,
+                model=self.llm_model,
+                response_model=self.response_model,
+                json_mode=self.json_mode,
+                stream=self.stream,
+            )
         return call_decorator
 
     def prompt_decorator(self):

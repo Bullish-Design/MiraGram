@@ -14,7 +14,7 @@ from rich.syntax import Syntax
 from rich import print as rprint
 
 from mirascope.core import openai
-
+from openai import OpenAI
 
 # Local Imports
 from miragram.src.base.base import (
@@ -73,12 +73,16 @@ from miragram.tests.models.parser_models import GeneratedParser
 
 
 # Configure logging
-from miragram.src.base.config import code_output_dir, db_url
+from miragram.src.base.config import code_output_dir, db_url, local_model_url
 
 from miragram.log.logger import get_logger
 
 logger = get_logger("SoftwareArchitect_Logging")
 
+client = OpenAI(
+    api_key="LLaMA_CPP",
+    base_url=local_model_url,
+)
 
 # Constants ---------------------------------------------------------------------------------------------------------
 code_request = """
@@ -150,6 +154,9 @@ def print_milestone_requirements(req_list: RequirementMilestoneList):
     # print_breakline()
 
 
+# Quick classes -----------------------------------------------------------------------------------------------------
+
+
 # Parsy Functions ---------------------------------------------------------------------------------------------------
 @miracall_condensed_functionality
 def condense_functionality(
@@ -183,13 +190,19 @@ def create_milestones(
 ) -> RequirementMilestoneList: ...
 
 
+@openai.call("LLaMA_CPP", client=client)
+def test_pydantic_request(genre: str) -> str:
+    return "Recommend a book in the {genre} genre."
+
+
 # Parsy Test Functions ----------------------------------------------------------------------------------------------
 goal = (
     "I want to create a highly flexible parsing library using the Python Parsy library."
 )
 
+genre = "fantasy"
 # goal = "I want to create a framework of pydantic classes that represent the software product development process, in order to represent the process in code."
-goal = "I want to create a file management library that provides directory and file reading/writing/creation/renaming capabilities all from a Pydantic baseclass. There should be an inherited class to represent directories, and another inherited class to represent files. Keep as much functionality within the baseclass as possible."
+# goal = "I want to create a file management library that provides directory and file reading/writing/creation/renaming capabilities all from a Pydantic baseclass. There should be an inherited class to represent directories, and another inherited class to represent files. Keep as much functionality within the baseclass as possible."
 
 
 # goal = "I want to create a TUI for viewing files using the Textual Python library. It should consist of a Text Area and a sidebar with another text area and a submission button for inputting text. If a filename is input to the text area and the button is clicked, the text area should read the document from the file and display them in the text area. There should be a second 'save' button in the sidebar that saves any edits made in the text area back to file."
@@ -241,7 +254,9 @@ def gen_pydantic_ideas(goal):
 
 
 def gen_project_structure():
-    gen_pydantic_ideas(goal)
+    # gen_pydantic_ideas(goal)
+    book = test_pydantic_request(genre)
+    print(f"\n\nBook Reccommendation: {book}\n\n")
 
 
 def test_pydantic():
