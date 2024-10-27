@@ -91,7 +91,7 @@ from miragram.log.logger import get_logger
 logger = get_logger("CallBase")
 
 client = OpenAI(
-    api_key="Local",
+    api_key="ollama",
     base_url=local_model_url,
 )
 
@@ -731,7 +731,7 @@ class MiraCall(MiraBase):
             # openai_call = openai.call(model="llama", client=client)
             call_decorator = Decorator(
                 openai_call,
-                model="llama",
+                model=local_model_name,
                 client=client,
                 response_model=self.response_model,
                 json_mode=self.json_mode,

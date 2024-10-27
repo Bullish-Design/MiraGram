@@ -73,14 +73,19 @@ from miragram.tests.models.parser_models import GeneratedParser
 
 
 # Configure logging
-from miragram.src.base.config import code_output_dir, db_url, local_model_url
+from miragram.src.base.config import (
+    code_output_dir,
+    db_url,
+    local_model_url,
+    local_model_name,
+)
 
 from miragram.log.logger import get_logger
 
 logger = get_logger("SoftwareArchitect_Logging")
 
 client = OpenAI(
-    api_key="LLaMA_CPP",
+    api_key="ollama",
     base_url=local_model_url,
 )
 
@@ -190,9 +195,18 @@ def create_milestones(
 ) -> RequirementMilestoneList: ...
 
 
-@openai.call("LLaMA_CPP", client=client)
+class Book(BaseModel):
+    """The JSON format for a book"""
+
+    title: str
+    author: str
+    genre: str
+    summary: str
+
+
+@openai.call(local_model_name, client=client, json_mode=True, response_model=Book)
 def test_pydantic_request(genre: str) -> str:
-    return "Recommend a book in the {genre} genre."
+    return f"Recommend a book in the {genre} genre."
 
 
 # Parsy Test Functions ----------------------------------------------------------------------------------------------
@@ -255,8 +269,9 @@ def gen_pydantic_ideas(goal):
 
 def gen_project_structure():
     # gen_pydantic_ideas(goal)
+    print(f"\n\nRequesting a {genre} book recommendation...\n\n")
     book = test_pydantic_request(genre)
-    print(f"\n\nBook Reccommendation: {book}\n\n")
+    print(f"\n\nBook Reccommendation: \n\n{book}\n\n")
 
 
 def test_pydantic():
