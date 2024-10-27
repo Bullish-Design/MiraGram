@@ -1,8 +1,8 @@
 # Imports
-from pydantic import BaseModel, Field, ConfigDict, PrivateAttr
+from pydantic import BaseModel, Field, ConfigDict, PrivateAttr, ValidationError
 from sqlalchemy.engine import result
 from sqlmodel import SQLModel, Relationship, Field as SQLField
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, cast, Annotated
 from typing_extensions import TypedDict
 import os
 import json
@@ -13,8 +13,8 @@ from rich.tree import Tree
 from rich.syntax import Syntax
 from rich import print as rprint
 
-from mirascope.core import openai
 from openai import OpenAI
+from mirascope.core import openai, prompt_template
 
 # Local Imports
 from miragram.src.base.base import (
@@ -198,21 +198,37 @@ def create_milestones(
 class Book(BaseModel):
     """The JSON format for a book"""
 
-    title: str
-    author: str
-    genre: str
-    summary: str
+    title: str = Field(description="The title of the book")
+    author: str = Field(description="The author of the book")
+    # genre: str = Field(description="The genre of the book")
+    summary: str = Field(description="A brief summary of the book")
 
 
 class BookList(BaseModel):
     """A list of books"""
 
-    books: List[Book]
+    books: List[Book] = Field(description="A list of books")
 
 
-@openai.call(local_model_name, client=client, json_mode=True, response_model=BookList)
+def parse_json(response: openai.OpenAICallResponse):
+    print(f"\n\nParsing Response...\n\n\n{response.response}\n\n\n")
+    print(f"\nParsed Response: \n\n{response}\n\nDone with parsing")
+    return response.content
+
+
+@openai.call(
+    local_model_name, client=client, json_mode=True, output_parser=parse_json
+)  # , response_model=Book)
+@prompt_template(
+    """
+    Please recommend a book in the {genre} genre.
+    The book should be returned in JSON format. 
+    The JSON fields should be 'title', 'author', 'genre', and 'summary'.
+    """
+)
 def test_pydantic_request(genre: str) -> str:
-    return f"Recommend two books in the {genre} genre."
+    ...
+    # return f"Recommend a book in the {genre} genre."
 
 
 # Parsy Test Functions ----------------------------------------------------------------------------------------------
@@ -276,10 +292,20 @@ def gen_pydantic_ideas(goal):
 def gen_project_structure():
     # gen_pydantic_ideas(goal)
     print(f"\n\nRequesting a {genre} book recommendation...\n\n")
-    book = test_pydantic_request(genre)
-    print(f"\n\nBook Reccommendation: \n\n{book}\n\n")
-    for res in book:
-        print(f"\n{res}\n")
+    try:
+        # book = test_pydantic_request(num=3, genre=genre)
+        book = test_pydantic_request(genre=genre)
+
+        print(f"\n\nBook Reccommendation: \n")  # "\n{book}\n\n")
+        rprint(book)
+        # print(f"\n\n")
+    except ValidationError as e:
+        print(f"\n\nError: {e}\n\n")
+        response = cast(openai.OpenAICallResponse, e._response)  # pyright: ignore[reportAttributeAccessIssue]
+        rprint(response.model_dump())
+    # print(f"\n\nBook Reccommendation: \n\n{book}\n\n")
+    # for res in book:
+    #    print(f"\n{res}\n")
     print(f"\n\n")
 
 
