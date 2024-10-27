@@ -204,9 +204,15 @@ class Book(BaseModel):
     summary: str
 
 
-@openai.call(local_model_name, client=client, json_mode=True, response_model=Book)
+class BookList(BaseModel):
+    """A list of books"""
+
+    books: List[Book]
+
+
+@openai.call(local_model_name, client=client, json_mode=True, response_model=BookList)
 def test_pydantic_request(genre: str) -> str:
-    return f"Recommend a book in the {genre} genre."
+    return f"Recommend two books in the {genre} genre."
 
 
 # Parsy Test Functions ----------------------------------------------------------------------------------------------
@@ -272,6 +278,9 @@ def gen_project_structure():
     print(f"\n\nRequesting a {genre} book recommendation...\n\n")
     book = test_pydantic_request(genre)
     print(f"\n\nBook Reccommendation: \n\n{book}\n\n")
+    for res in book:
+        print(f"\n{res}\n")
+    print(f"\n\n")
 
 
 def test_pydantic():
