@@ -195,16 +195,16 @@ def create_milestones(
 ) -> RequirementMilestoneList: ...
 
 
-class Book(BaseModel):
+class Book(MiraResponse):
     """The JSON format for a book"""
 
     title: str = Field(description="The title of the book")
     author: str = Field(description="The author of the book")
-    # genre: str = Field(description="The genre of the book")
+    genre: str = Field(description="The genre of the book")
     summary: str = Field(description="A brief summary of the book")
 
 
-class BookList(BaseModel):
+class BookList(MiraResponse):
     """A list of books"""
 
     books: List[Book] = Field(description="A list of books")
@@ -216,19 +216,41 @@ def parse_json(response: openai.OpenAICallResponse):
     return response.content
 
 
-@openai.call(
-    local_model_name, client=client, json_mode=True, output_parser=parse_json
-)  # , response_model=Book)
+@openai.call(local_model_name, client=client, json_mode=True, response_model=Book)
 @prompt_template(
     """
     Please recommend a book in the {genre} genre.
-    The book should be returned in JSON format. 
-    The JSON fields should be 'title', 'author', 'genre', and 'summary'.
+    DO NOT pick a book from the following list: {current_list:list}
+    Use the following exmaple as a response template for the response:
+    {example}
     """
 )
-def test_pydantic_request(genre: str) -> str:
+def test_pydantic_request(genre: str, current_list: list[str], example) -> str:
     ...
     # return f"Recommend a book in the {genre} genre."
+
+
+@openai.call(local_model_name, client=client, json_mode=True, response_model=BookList)
+@prompt_template(
+    """
+    Please recommend {num} unique books in the {genre} genre.
+    Use the following exmaple as a reponse template for the response: 
+    {example}
+    DO NOT REPEAT BOOKS IN THE LIST. DO NOT ALLOW EXAMPLE BOOKS TO INFLUENCE RESULTS. DO NOT GIVE BACK THE EXAMPLE LIST.
+    """
+)
+def test_book_list(num: str, genre: str, example) -> str:
+    ...
+    # return f"Recommend a book in the {genre} genre."
+
+
+@openai.call(local_model_name, client=client)
+@prompt_template(
+    """You are a skilled software engineer. Please create a python script according to the following request:
+    {request}
+    """
+)
+def code_request(request: str) -> str: ...
 
 
 # Parsy Test Functions ----------------------------------------------------------------------------------------------
@@ -237,6 +259,24 @@ goal = (
 )
 
 genre = "fantasy"
+
+genre_list = [
+    "sci-fi",
+    "action",
+    "adventure",
+    "fantasy",
+    "mystery",
+    "romance",
+    "non-fiction",
+    "biography",
+    "historical",
+    "comedy",
+    "historical fiction",
+    "science",
+    "self-help",
+    "dystopian",
+    "utopian",
+]
 # goal = "I want to create a framework of pydantic classes that represent the software product development process, in order to represent the process in code."
 # goal = "I want to create a file management library that provides directory and file reading/writing/creation/renaming capabilities all from a Pydantic baseclass. There should be an inherited class to represent directories, and another inherited class to represent files. Keep as much functionality within the baseclass as possible."
 
@@ -289,24 +329,232 @@ def gen_pydantic_ideas(goal):
         print_pydantic_model(model)
 
 
-def gen_project_structure():
+def remove_id_fields(data):
+    if isinstance(data, dict):
+        return {k: remove_id_fields(v) for k, v in data.items() if k != "id"}
+    elif isinstance(data, list):
+        return [remove_id_fields(item) for item in data]
+    return data
+
+
+def gen_book(genre: str, current_list: list[str] = []):
     # gen_pydantic_ideas(goal)
-    print(f"\n\nRequesting a {genre} book recommendation...\n\n")
+    # print(f"\nRequesting a {genre} book recommendation...\n")
+    example_id = "bd3fcdbfae104704ad04e32b931888eb"
+    example = get_single_instance_from_db("Book", example_id)
+    example = example.model_dump()
+    example = remove_id_fields(example)
+    # rprint(example)
     try:
         # book = test_pydantic_request(num=3, genre=genre)
-        book = test_pydantic_request(genre=genre)
+        book = test_pydantic_request(
+            genre=genre, current_list=current_list, example=example
+        )
 
-        print(f"\n\nBook Reccommendation: \n")  # "\n{book}\n\n")
-        rprint(book)
+        # print(f"\nBook Reccommendation: \n")  # "\n{book}\n\n")
+        # rprint(book)
+        return book
+        # print(f"\n\n")
+    except ValidationError as e:
+        print(f"\n\nError: {e}\n\n")
+        response = cast(openai.OpenAICallResponse, e._response.content)  # pyright: ignore[reportAttributeAccessIssue]
+        rprint(response)
+        return f"Error with genre: {genre}"
+    # print(f"\n\nBook Reccommendation: \n\n{book}\n\n")
+    # for res in book:
+    #    print(f"\n{res}\n")
+    # print(f"\n\n")
+    # return book
+
+
+def gen_book_list(num: int, genre: str):
+    # gen_pydantic_ideas(goal)
+    # print(f"\nRequesting a {genre} book recommendation...\n")
+    id = "640ee6f910774ecbbb64e848c4ce342a"
+    example = get_single_instance_from_db("BookList", id)
+    example = example.model_dump()
+    example = remove_id_fields(example)
+    # rprint(example)
+    try:
+        # book = test_pydantic_request(num=3, genre=genre)
+        book = test_book_list(num=num, genre=genre, example=example)
+
+        # print(f"\nBook Reccommendation: \n")  # "\n{book}\n\n")
+        # rprint(book)
+        return book
         # print(f"\n\n")
     except ValidationError as e:
         print(f"\n\nError: {e}\n\n")
         response = cast(openai.OpenAICallResponse, e._response)  # pyright: ignore[reportAttributeAccessIssue]
         rprint(response.model_dump())
+        return f"Error with genre: {genre}"
     # print(f"\n\nBook Reccommendation: \n\n{book}\n\n")
     # for res in book:
     #    print(f"\n{res}\n")
     print(f"\n\n")
+    # return book
+
+
+def check_uniques(book_list: list[Book]):
+    unique_books = []
+    all_titles = []
+    unique_titles = []
+    print(f"\n\n")
+    for book in book_list:
+        all_titles.append(book.title)
+        print(f"{book.title}")
+    print(f"\n\n")
+    for book in book_list:
+        if book.title not in unique_titles:
+            unique_titles.append(book.title)
+            unique_books.append(book)
+            print(f" - '{book.title}'")
+    return unique_books
+
+
+## Code Generation --------------------------------------------------------------------------------------------------
+# phi3.5                    | Generated code in 18.11 sec (0.3 min)
+# phi3.5                    | Generated   56 lines of code in 14.87 sec (0.2 min)
+# qwen2.5-coder:7b-instruct | Generated   69 lines of code in 38.89 sec (0.6 min)
+# Mistral Small             | Cloudflare tunnel timeout
+# codestral                 | Generated    5 lines of code in 164.31 sec (2.7 min) - Absolute garbage, just said what it'll do.
+
+
+def gen_project_structure():
+    start_time = time()
+    code_test = "Create a python script that flexibly parses JSON responses to a given Pydantic model. The script is primarily intended to recover from small mistakes in structure and formatting. The script should respond with the Pydantic model object and True if the JSON is successfully parsed, and an error message and False if the JSON is not successfully parsed. Keep all description and explanation contained within code comments and docstrings. *DO NOT* include any preable or overview. *ONLY* return valid python code."
+
+    result = code_request(code_test)
+    print(type(result))
+    code_lines = len(result.content.splitlines())
+    end_time = time()
+    print(f"\n\nCode Result: \n\n{result}\n\n")
+    elapsed_time = end_time - start_time
+    rounded_sec = round(elapsed_time, 2)
+    rounded_min = round(elapsed_time / 60, 1)
+    print(
+        f"\n# {local_model_name:<25} | Generated {code_lines:>4} lines of code in {rounded_sec:>5} sec ({rounded_min:>3} min) "
+    )
+
+
+## Pydantic Book generation ------------------------------------------------------------------------------------------------
+# Llama 3.2 = 85 in 107.8 sec
+# Mistral Nemo = 85 in 967.1 sec - 1 error
+# Mistral Nemo = 150 5 book lists in 8764.6 sec - 2 errors
+# Qwen2.5 coder = 75 in 297.5 sec - 0 errors
+# llama3.2:3b-instruct-q4_K_M = 75 books in 102.5 sec - 37 errors
+# llama3.2:3b-instruct-q6_K = 75 books in 123.0 sec - 22 errors
+# Gemma2:2b - Failed to complete
+# llama3.2:3b-instruct-q8_0 = 75 books in 119.4 sec - 13 errors
+# llama3.2:3b-instruct-q8_0 = 150 books in 255.2 sec - 26 errors
+# gemma2:2b = 150 books in 278.8 sec - 9 errors
+# mistral-nemo = 75 books in 901.9 sec - 2 errors
+# gemma2:2b = 45 books in 91.0 sec - 3 errors
+# gemma2:2b-instruct-q8_0 = 45 books in 127.4 sec - 18 errors
+# gemma2:2b = 45 books in 101.2 sec - 3 errors (with example from db as template)
+# llama3.2:3b-instruct-q8_0 = 45 books in 98.4 sec - 18 errors (with example from db as template)
+# llama3.2:3b-instruct-q8_0 = 45 books in 82.9 sec - 5 errors (with example.model_dump() from db as template)
+# gemma2:2b = 45 books in 107.2 sec - 3 errors (with example.model_dump() from db as template)
+# gemma2:2b = 150 books in 304.1 sec - 3 errors
+# granite3-dense:2b = 75 books in 164.0 sec - 0 errors (with example.model_dump() from db as template)
+# granite3-dense:2b = 75 books in 129.8 sec - 0 errors (no example, just a response model. Dayum.)
+# granite3-dense:2b = 30 books in 57.0 sec | 0.5 books/sec | 3.33% error | 1 total errors
+# granite3-dense:2b = 30 books in 218.8 sec | 0.1 books/sec | 13.33% error | 4 total errors  (Book list - just spat input back)
+# granite3-dense:2b = 300 books in 525.6 sec | 0.6 books/sec | 0.0% error | 0 total errors  ==> (Book gen/list)
+# granite3-dense:2b = 150 books in 324.0 sec | 18.0% unique | 0.5 books/sec | 0.67% error | 1 total errors  ==> (Book gen)
+# granite3-dense:8b = 75 books in 476.6 sec | 32.0% unique | 0.2 books/sec | 1.33% error | 1 total errors  ==> (Book gen)
+# qwen2.5-coder:7b-instruct = 75 books in 323.9 sec | 49.33% unique | 0.2 books/sec | 1.33% error | 1 total errors  ==> (Book gen/list)
+# gemma2:2b = 75 books in 246.7 sec | 17.33% unique | 0.3 books/sec | 73.33% error | 55 total errors  ==> (Book gen - No template)
+# llama3.2:3b-instruct-q6_K = 75 books in 138.9 sec | 37.33% unique | 0.5 books/sec | 2.67% error | 2 total errors  ==> (Book gen/list)
+# llama3.2:3b-instruct-q8_0 = 75 books in 166.4 sec | 32.0% unique | 0.5 books/sec | 9.33% error | 7 total errors  ==> (Book gen/list)
+# gemma2:2b-instruct-q8_0 = 75 books in 204.6 sec | 26.67% unique | 0.4 books/sec | 17.33% error | 13 total errors  ==> (Book gen/list)
+# mistral-nemo = 45 books in 633.8 sec | 86.67% unique | 0.1 books/sec | 0.0% error | 0 total errors  ==> (Book gen/list)
+# mistral-small = 45 books in 1511.9 sec | 97.78% unique | 0.0 books/sec | 0.0% error | 0 total errors  ==> (Book gen/list)
+# phi3.5 = 45 books in 177.1 sec (3.0 min) | 73.33% unique | 0.3 books/sec | 2.22% error | 1 total errors  ==> (Book gen/list)
+# phi3.5 = 75 books in 185.7 sec (3.1 min) | 58.67% unique | 0.4 books/sec | 0.0% error | 0 total errors  ==> (Book gen/list)
+# phi3.5 = 150 books in 378.5 sec (6.3 min) | 26.0% unique | 0.4 books/sec | 0.0% error | 0 total errors  ==> (Book gen/list)
+# mistral-nemo = 75 books in 1103.8 sec (18.4 min) | 81.33% unique | 0.1 books/sec | 0.0% error | 0 total errors  ==> (Book gen/list)
+# phi3.5                    =    75 books in 191.8 sec (3.2 min) | 56.0% unique | 0.4 books/sec | 0.0% error | 0 total errors  ==> (Book gen/list)
+# gemma2:2b                 =    75 books in 189.6 sec (3.2 min) | 38.67% unique | 0.4 books/sec | 18.67% error | 14 total errors  ==> (Book gen/list)
+# llama3.2:3b-instruct-q8_0 =    75 books in 136.7 sec (2.3 min) | 36.0% unique | 0.5 books/sec | 8.0% error | 6 total errors  ==> (Book gen/list)
+# llama3.2:3b-instruct-q8_0 =    75 books in 135.5 sec (2.3 min) | 37.3% unique | 0.6 books/sec | 1.33% error | 1 total errors  ==> (Book gen/list)
+# granite3-dense:2b         =    75 books in 165.0 sec (2.8 min) | 28.0% unique | 0.5 books/sec | 0.0% error | 0 total errors  ==> (Book gen/list)
+# mistral-small             =   375 books in 30246.2 sec (504.1 min) | 42.4% unique | 0.0 books/sec | 2.93% error | 11 total errors  ==> (Book gen/list)
+# qwen2.5-coder:7b-instruct =   375 books in 1658.64 sec (27.6 min) | 85 unique (22.7%) | 0.2 books/sec | 0.8% error | 3 total errors  ==> (Book gen - Lots of bullshit)
+# mistral-nemo              =   150 books in 2402.53 sec (40.0 min) | 111 unique (74.0%) | 0.1 books/sec | 0.0% error | 0 total errors  ==> (Book gen - Great responses)
+
+
+def gen_project_structure2():
+    start_time = time()
+    overall_book_list = []
+    for i in range(10):
+        overall_book_list.extend(genre_list)
+    results = []
+    count = 0
+    # print(f"\n\n")
+    result_title = []
+    for genre in overall_book_list:
+        count += 1
+        print(f"Request {count}: Requesting a {genre} book recommendation...")
+        return_book = gen_book(genre, result_title)
+        results.append(return_book)
+        result_title.append(return_book.title)
+        # results.append(gen_book_list(5, genre))
+    print(f"\n\n")
+    count = 0
+    error_results = []
+    successful_results = []
+    for res in results:
+        count += 1
+        print(f"\nResult {count} - Type: {type(res)}\n")
+        rprint(res)
+        if isinstance(res, str):
+            error_results.append({"Error": res})
+        else:
+            successful_results.append(res)  # Single
+            ## List:
+            # for book in res.books:
+            #    successful_results.append(book)
+    parsed_results = []
+    """
+    for res in results:
+        try:
+            pydantic_model = Book.model_validate_json(res)
+            # pydantic_model = BookList.parse_obj(res)
+            parsed_results.append(pydantic_model)
+        except ValidationError as e:
+            error_results.append({"Error": e, "response": res})
+    print(f"\nParsed Results:\n")
+    for res in parsed_results:
+        rprint(res)
+    print(f"\nError Results:\n")
+    for res in error_results:
+        rprint(res)
+    """
+    unique_results = check_uniques(successful_results)
+    end_time = time()
+    elapsed_time = end_time - start_time
+    rounded_sec = round(elapsed_time, 2)
+    rounded_min = round(elapsed_time / 60, 1)
+    # print(f"\n{len(parsed_results)} parsed results.\n")
+    # print(f"\n{len(error_results)} errors.\n")
+    # print(
+    #    f"\n\n\nFinished gnerating {len(overall_book_list)} books in {rounded_sec} seconds.\n"
+    # )
+    book_list_len = len(overall_book_list)
+    bps = round(book_list_len / rounded_sec, 1)
+    unique_percentage = round((len(unique_results) / book_list_len) * 100, 1)
+    errors = len(error_results)
+    error_percentage = (errors / book_list_len) * 100
+    rounded_error_percentage = round(error_percentage, 2)
+    # print(f"\n\n\n")
+    # for u_result in unique_results:
+    #    print(f" - '{u_result.title}'")
+    # print(f"\n")
+    print(
+        f"\n\n\n# {local_model_name:<25} = {len(overall_book_list):>5} books in {rounded_sec:>5} sec ({rounded_min:>3} min) | {len(unique_results)} unique ({unique_percentage}%) | {bps} books/sec | {rounded_error_percentage}% error | {len(error_results)} total errors  ==> (Book gen/list)\n"
+    )
+    print(f"\n{db_url}\n")
 
 
 def test_pydantic():
